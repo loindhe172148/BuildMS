@@ -1,0 +1,55 @@
+# Maven
+/target
+*.jar
+*.war
+*.ear
+.m2/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.classpath
+.project
+.settings/
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Build artifacts
+*.class
+*.o
+*.so
+*.exe
+
+# Dependencies
+node_modules/
+vendor/
+.gradle/
+
+# Environment
+.env
+.env.local
+*.properties.local
+
+# Database
+*.db
+*.sqlite
+*.sql.bak
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# IDE-specific
+.vscode/settings.json
+.vscode/extensions.json
+*.code-workspace
