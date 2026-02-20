@@ -343,27 +343,4 @@ public class TransferService {
         
         return result;
     }
-    
-    /**
-     * Get locations for a warehouse
-     * @param warehouseId Warehouse ID
-     * @return List of active locations
-     */
-    
-    
-    /**
-     * Get user by ID
-     * @param userId User ID
-     * @return User if found
-     */
-    public User getUserById(Long userId) {
-        return userDAO.findById(userId);
-    }
-    
-    /**
-     * Get transfer requests for a specific warehouse (source or destination)
-     * @param warehouseId Warehouse ID
-     * @return List of transfer requests
-     */
-    
 }
