@@ -47,23 +47,12 @@ public class TransferController extends HttpServlet {
         }
         
         switch (action) {
-            case "list":
-                listTransfers(request, response);
-                break;
             case "create":
                 showCreateForm(request, response);
                 break;
             case "view":
                 viewTransfer(request, response);
                 break;
-            case "execute-outbound":
-                showOutboundExecutionForm(request, response);
-                break;
-            case "execute-inbound":
-                showInboundExecutionForm(request, response);
-                break;
-            default:
-                listTransfers(request, response);
         }
     }
     
@@ -81,65 +70,9 @@ public class TransferController extends HttpServlet {
             case "create":
                 createTransfer(request, response);
                 break;
-            case "approve":
-                approveTransfer(request, response);
-                break;
-            case "reject":
-                rejectTransfer(request, response);
-                break;
-            case "start-outbound":
-                startOutbound(request, response);
-                break;
-            case "complete-outbound":
-                completeOutbound(request, response);
-                break;
-            case "start-inbound":
-                startInbound(request, response);
-                break;
-            case "complete-inbound":
-                completeInbound(request, response);
-                break;
             default:
                 response.sendRedirect(request.getContextPath() + "/transfer");
         }
-    }
-    
-    /**
-     * List all transfer requests with optional status filter
-     */
-    private void listTransfers(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        String status = request.getParameter("status");
-        
-        List<Request> transfers;
-        if (status != null && !status.isEmpty()) {
-            transfers = transferService.getTransferRequestsByStatus(status);
-        } else {
-            transfers = transferService.getAllTransferRequests();
-        }
-        
-        // Enrich with warehouse info
-        List<Map<String, Object>> transfersWithDetails = new ArrayList<>();
-        for (Request transfer : transfers) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("request", transfer);
-            
-            Warehouse source = transferService.getWarehouseById(transfer.getSourceWarehouseId());
-            Warehouse dest = transferService.getWarehouseById(transfer.getDestinationWarehouseId());
-            User creator = transferService.getUserById(transfer.getCreatedBy());
-            
-            data.put("sourceWarehouse", source);
-            data.put("destinationWarehouse", dest);
-            data.put("creator", creator);
-            
-            transfersWithDetails.add(data);
-        }
-        
-        request.setAttribute("transfers", transfersWithDetails);
-        request.setAttribute("selectedStatus", status);
-        
-        request.getRequestDispatcher("/WEB-INF/views/transfer/list.jsp")
-               .forward(request, response);
     }
     
     /**
@@ -174,6 +107,76 @@ public class TransferController extends HttpServlet {
                .forward(request, response);
     }
     
+    /**
+     * UC-TRF-001: Create transfer request
+     */
+    private void createTransfer(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Manager/Admin can create transfers
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Managers can create transfer requests");
+            listTransfers(request, response);
+            return;
+        }
+        
+        try {
+            Long sourceWarehouseId = Long.parseLong(request.getParameter("sourceWarehouseId"));
+            Long destinationWarehouseId = Long.parseLong(request.getParameter("destinationWarehouseId"));
+            String notes = request.getParameter("notes");
+            
+            // Validate different warehouses
+            if (sourceWarehouseId.equals(destinationWarehouseId)) {
+                request.setAttribute("errorMessage", "Source and destination warehouses must be different");
+                showCreateForm(request, response);
+                return;
+            }
+            
+            // Parse items
+            String[] productIds = request.getParameterValues("productId[]");
+            String[] quantities = request.getParameterValues("quantity[]");
+            
+            if (productIds == null || productIds.length == 0) {
+                request.setAttribute("errorMessage", "At least one item is required");
+                showCreateForm(request, response);
+                return;
+            }
+            
+            List<RequestItem> items = new ArrayList<>();
+            for (int i = 0; i < productIds.length; i++) {
+                if (productIds[i] != null && !productIds[i].isEmpty()) {
+                    RequestItem item = new RequestItem();
+                    item.setProductId(Long.parseLong(productIds[i]));
+                    item.setQuantity(Integer.parseInt(quantities[i]));
+                    items.add(item);
+                }
+            }
+            
+            if (items.isEmpty()) {
+                request.setAttribute("errorMessage", "At least one item is required");
+                showCreateForm(request, response);
+                return;
+            }
+            
+            Request transfer = transferService.createTransferRequest(
+                sourceWarehouseId, destinationWarehouseId, currentUser.getId(), items, notes);
+            
+            if (transfer != null) {
+                response.sendRedirect(request.getContextPath() + 
+                    "/transfer?action=view&id=" + transfer.getId() + 
+                    "&success=Transfer request created successfully");
+            } else {
+                request.setAttribute("errorMessage", "Failed to create transfer request");
+                showCreateForm(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid input format");
+            showCreateForm(request, response);
+        }
+    }
     
     /**
      * View transfer details
@@ -216,163 +219,38 @@ public class TransferController extends HttpServlet {
         }
     }
     
-    /**
-     * Approve transfer request
-     */
-    
-    /**
-     * Reject transfer request
-     */
-    private void rejectTransfer(HttpServletRequest request, HttpServletResponse response)
+    private void listTransfers(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        String status = request.getParameter("status");
         
-        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Managers can reject transfers");
-            listTransfers(request, response);
-            return;
+        List<Request> transfers;
+        if (status != null && !status.isEmpty()) {
+            transfers = transferService.getTransferRequestsByStatus(status);
+        } else {
+            transfers = transferService.getAllTransferRequests();
         }
         
-        try {
-            Long requestId = Long.parseLong(request.getParameter("id"));
-            String reason = request.getParameter("reason");
+        // Enrich with warehouse info
+        List<Map<String, Object>> transfersWithDetails = new ArrayList<>();
+        for (Request transfer : transfers) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("request", transfer);
             
-            if (reason == null || reason.trim().isEmpty()) {
-                request.setAttribute("errorMessage", "Rejection reason is required");
-                viewTransfer(request, response);
-                return;
-            }
+            Warehouse source = transferService.getWarehouseById(transfer.getSourceWarehouseId());
+            Warehouse dest = transferService.getWarehouseById(transfer.getDestinationWarehouseId());
+            User creator = transferService.getUserById(transfer.getCreatedBy());
             
-            boolean success = transferService.rejectTransfer(requestId, currentUser.getId(), reason);
+            data.put("sourceWarehouse", source);
+            data.put("destinationWarehouse", dest);
+            data.put("creator", creator);
             
-            if (success) {
-                response.sendRedirect(request.getContextPath() + 
-                    "/transfer?success=Transfer rejected");
-            } else {
-                request.setAttribute("errorMessage", "Failed to reject transfer");
-                viewTransfer(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid request ID");
-            listTransfers(request, response);
+            transfersWithDetails.add(data);
         }
-    }
-    
-    /**
-     * UC-TRF-002: Show outbound execution form
-     */
-    
-    /**
-     * UC-TRF-002: Start outbound execution
-     */
-    private void startOutbound(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        try {
-            Long requestId = Long.parseLong(request.getParameter("id"));
-            
-            boolean success = transferService.startOutboundExecution(requestId);
-            
-            if (success) {
-                response.sendRedirect(request.getContextPath() + 
-                    "/transfer?action=execute-outbound&id=" + requestId + 
-                    "&success=Outbound picking started");
-            } else {
-                request.setAttribute("errorMessage", "Failed to start outbound execution");
-                showOutboundExecutionForm(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid request ID");
-            listTransfers(request, response);
-        }
-    }
-    
-    /**
-     * UC-TRF-002: Complete outbound execution
-     */
-    private void completeOutbound(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
         
-        try {
-            Long requestId = Long.parseLong(request.getParameter("id"));
-            
-            boolean success = transferService.completeOutboundExecution(requestId, currentUser.getId());
-            
-            if (success) {
-                response.sendRedirect(request.getContextPath() + 
-                    "/transfer?action=view&id=" + requestId + 
-                    "&success=Outbound completed. Goods are now in transit");
-            } else {
-                request.setAttribute("errorMessage", "Failed to complete outbound");
-                showOutboundExecutionForm(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid request ID");
-            listTransfers(request, response);
-        }
-    }
-    
-    /**
-     * UC-TRF-003: Show inbound execution form
-     */
-    
-    /**
-     * UC-TRF-003: Start inbound execution
-     */
-    private void startInbound(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        try {
-            Long requestId = Long.parseLong(request.getParameter("id"));
-            
-            boolean success = transferService.startInboundExecution(requestId);
-            
-            if (success) {
-                response.sendRedirect(request.getContextPath() + 
-                    "/transfer?action=execute-inbound&id=" + requestId + 
-                    "&success=Inbound receiving started");
-            } else {
-                request.setAttribute("errorMessage", "Failed to start inbound execution");
-                showInboundExecutionForm(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid request ID");
-            listTransfers(request, response);
-        }
-    }
-    
-    /**
-     * UC-TRF-003: Complete inbound execution
-     */
-    private void completeInbound(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        request.setAttribute("transfers", transfersWithDetails);
+        request.setAttribute("selectedStatus", status);
         
-        try {
-            Long requestId = Long.parseLong(request.getParameter("id"));
-            Long destinationLocationId = Long.parseLong(request.getParameter("destinationLocationId"));
-            
-            boolean success = transferService.completeInboundExecution(
-                requestId, currentUser.getId(), destinationLocationId);
-            
-            if (success) {
-                response.sendRedirect(request.getContextPath() + 
-                    "/transfer?action=view&id=" + requestId + 
-                    "&success=Transfer completed successfully");
-            } else {
-                request.setAttribute("errorMessage", "Failed to complete inbound");
-                showInboundExecutionForm(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid input");
-            listTransfers(request, response);
-        }
+        request.getRequestDispatcher("/WEB-INF/views/transfer/list.jsp")
+               .forward(request, response);
     }
 }
