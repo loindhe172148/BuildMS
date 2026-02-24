@@ -31,6 +31,7 @@ public class CategoryDAO {
                 }
             }
         } catch (SQLException e) {
+            e.printStackTrace();
         }
         
         return null;
