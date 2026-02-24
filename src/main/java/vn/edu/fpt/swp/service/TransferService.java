@@ -155,6 +155,228 @@ public class TransferService {
         }
         return null;
     }
+    
+    /**
+     * Get items for a transfer request with product details
+     * @param requestId Request ID
+     * @return List of items with product info
+     */
+    public List<Map<String, Object>> getTransferItemsWithDetails(Long requestId) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
+        
+        for (RequestItem item : items) {
+            Map<String, Object> itemData = new HashMap<>();
+            itemData.put("item", item);
+            
+            Product product = productDAO.findById(item.getProductId());
+            if (product != null) {
+                itemData.put("product", product);
+            }
+            
+            result.add(itemData);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Check inventory availability at source warehouse
+     * @param requestId Transfer request ID
+     * @return List of availability info per item
+     */
+    public List<Map<String, Object>> checkTransferAvailability(Long requestId) {
+        Request request = getTransferRequestById(requestId);
+        if (request == null) {
+            return new ArrayList<>();
+        }
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
+        
+        for (RequestItem item : items) {
+            Map<String, Object> availability = new HashMap<>();
+            availability.put("item", item);
+            
+            Product product = productDAO.findById(item.getProductId());
+            availability.put("product", product);
+            
+            int available = inventoryDAO.getTotalQuantityByProductAndWarehouse(
+                item.getProductId(), request.getSourceWarehouseId());
+            availability.put("available", available);
+            availability.put("requested", item.getQuantity());
+            availability.put("sufficient", available >= item.getQuantity());
+            
+            result.add(availability);
+        }
+        
+        return result;
+    }
+    
+    // ========== Approval ==========
+    
+    /**
+     * Approve a transfer request
+     * @param requestId Request ID
+     * @param approverId User who approves
+     * @return true if successful
+     */
+    public boolean approveTransfer(Long requestId, Long approverId) {
+        if (requestId == null || approverId == null) {
+            return false;
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        if (request == null || !"Created".equals(request.getStatus())) {
+            return false;
+        }
+        
+        return requestDAO.approve(requestId, approverId);
+    }
+    
+    /**
+     * Reject a transfer request
+     * @param requestId Request ID
+     * @param rejectorId User who rejects
+     * @param reason Rejection reason
+     * @return true if successful
+     */
+    public boolean rejectTransfer(Long requestId, Long rejectorId, String reason) {
+        if (requestId == null || rejectorId == null || reason == null || reason.trim().isEmpty()) {
+            return false;
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        if (request == null || !"Created".equals(request.getStatus())) {
+            return false;
+        }
+        
+        return requestDAO.reject(requestId, rejectorId, reason);
+    }
+    
+    // ========== UC-TRF-002: Execute Transfer Outbound ==========
+    
+    /**
+     * Start outbound execution (picking)
+     * @param requestId Request ID
+     * @return true if successful
+     */
+    public boolean startOutboundExecution(Long requestId) {
+        if (requestId == null) {
+            return false;
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        if (request == null || !"Approved".equals(request.getStatus())) {
+            return false;
+        }
+        
+        return requestDAO.startExecution(requestId);
+    }
+    
+    /**
+     * Complete outbound execution - deduct inventory from source
+     * @param requestId Request ID
+     * @param completedBy User completing
+     * @return true if successful
+     */
+    public boolean completeOutboundExecution(Long requestId, Long completedBy) {
+        if (requestId == null || completedBy == null) {
+            return false;
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        if (request == null || !"InProgress".equals(request.getStatus())) {
+            return false;
+        }
+        
+        // Get items and deduct from source warehouse
+        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
+        
+        for (RequestItem item : items) {
+            // Deduct from source warehouse
+            boolean success = inventoryDAO.decreaseQuantity(
+                item.getProductId(),
+                request.getSourceWarehouseId(),
+                item.getLocationId(), // Source location
+                item.getQuantity()
+            );
+            
+            if (!success) {
+                return false; // Rollback would be needed in real scenario
+            }
+        }
+        
+        // Update request to "InTransit" status to indicate outbound complete
+        // For simplicity, we'll use "InTransit" to mark outbound done
+        return requestDAO.updateStatus(requestId, "InTransit");
+    }
+    
+    // ========== UC-TRF-003: Execute Transfer Inbound ==========
+    
+    /**
+     * Start inbound execution (receiving)
+     * @param requestId Request ID
+     * @return true if successful
+     */
+    public boolean startInboundExecution(Long requestId) {
+        if (requestId == null) {
+            return false;
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        // Must be InTransit (outbound completed)
+        if (request == null || !"InTransit".equals(request.getStatus())) {
+            return false;
+        }
+        
+        return requestDAO.updateStatus(requestId, "Receiving");
+    }
+    
+    /**
+     * Complete inbound execution - add inventory to destination
+     * @param requestId Request ID
+     * @param completedBy User completing
+     * @param destinationLocationId Destination location for all items
+     * @return true if successful
+     */
+    public boolean completeInboundExecution(Long requestId, Long completedBy, Long destinationLocationId) {
+        if (requestId == null || completedBy == null || destinationLocationId == null) {
+            return false;
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        if (request == null || !"Receiving".equals(request.getStatus())) {
+            return false;
+        }
+        
+        // Verify destination location belongs to destination warehouse
+        Location location = locationDAO.findById(destinationLocationId);
+        if (location == null || !request.getDestinationWarehouseId().equals(location.getWarehouseId())) {
+            return false;
+        }
+        
+        // Get items and add to destination warehouse
+        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
+        
+        for (RequestItem item : items) {
+            // Add to destination warehouse
+            boolean success = inventoryDAO.increaseQuantity(
+                item.getProductId(),
+                request.getDestinationWarehouseId(),
+                destinationLocationId,
+                item.getQuantity()
+            );
+            
+            if (!success) {
+                return false;
+            }
+        }
+        
+        // Complete the transfer
+        return requestDAO.complete(requestId, completedBy);
+    }
+    
     // ========== Helper Methods ==========
     
     /**

@@ -169,5 +169,223 @@ public class RequestItemDAO {
             }
         }
     }
-  
+    
+    /**
+     * Find all items for a request
+     * @param requestId Request ID
+     * @return List of request items
+     */
+    public List<RequestItem> findByRequestId(Long requestId) {
+        List<RequestItem> items = new ArrayList<>();
+        
+        if (requestId == null) {
+            return items;
+        }
+        
+        String sql = "SELECT RequestId, ProductId, Quantity, LocationId, SourceLocationId, " +
+                     "DestinationLocationId, ReceivedQuantity, PickedQuantity " +
+                     "FROM RequestItems WHERE RequestId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setLong(1, requestId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    items.add(mapResultSetToRequestItem(rs));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return items;
+    }
+    
+    /**
+     * Find a specific item in a request
+     * @param requestId Request ID
+     * @param productId Product ID
+     * @return RequestItem if found
+     */
+    public RequestItem findByRequestAndProduct(Long requestId, Long productId) {
+        if (requestId == null || productId == null) {
+            return null;
+        }
+        
+        String sql = "SELECT RequestId, ProductId, Quantity, LocationId, SourceLocationId, " +
+                     "DestinationLocationId, ReceivedQuantity, PickedQuantity " +
+                     "FROM RequestItems WHERE RequestId = ? AND ProductId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setLong(1, requestId);
+            stmt.setLong(2, productId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToRequestItem(rs);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Update received quantity for inbound execution
+     * @param requestId Request ID
+     * @param productId Product ID
+     * @param receivedQuantity Actual received quantity
+     * @return true if successful
+     */
+    public boolean updateReceivedQuantity(Long requestId, Long productId, Integer receivedQuantity) {
+        if (requestId == null || productId == null || receivedQuantity == null) {
+            return false;
+        }
+        
+        String sql = "UPDATE RequestItems SET ReceivedQuantity = ? WHERE RequestId = ? AND ProductId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, receivedQuantity);
+            stmt.setLong(2, requestId);
+            stmt.setLong(3, productId);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Update picked quantity for outbound execution
+     * @param requestId Request ID
+     * @param productId Product ID
+     * @param pickedQuantity Actual picked quantity
+     * @return true if successful
+     */
+    public boolean updatePickedQuantity(Long requestId, Long productId, Integer pickedQuantity) {
+        if (requestId == null || productId == null || pickedQuantity == null) {
+            return false;
+        }
+        
+        String sql = "UPDATE RequestItems SET PickedQuantity = ? WHERE RequestId = ? AND ProductId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, pickedQuantity);
+            stmt.setLong(2, requestId);
+            stmt.setLong(3, productId);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Update location for a request item
+     * @param requestId Request ID
+     * @param productId Product ID
+     * @param locationId New location ID
+     * @return true if successful
+     */
+    public boolean updateLocation(Long requestId, Long productId, Long locationId) {
+        if (requestId == null || productId == null) {
+            return false;
+        }
+        
+        String sql = "UPDATE RequestItems SET LocationId = ? WHERE RequestId = ? AND ProductId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            if (locationId != null) {
+                stmt.setLong(1, locationId);
+            } else {
+                stmt.setNull(1, Types.BIGINT);
+            }
+            stmt.setLong(2, requestId);
+            stmt.setLong(3, productId);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Delete all items for a request
+     * @param requestId Request ID
+     * @return true if successful
+     */
+    public boolean deleteByRequestId(Long requestId) {
+        if (requestId == null) {
+            return false;
+        }
+        
+        String sql = "DELETE FROM RequestItems WHERE RequestId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setLong(1, requestId);
+            
+            return stmt.executeUpdate() >= 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Map ResultSet to RequestItem object
+     */
+    private RequestItem mapResultSetToRequestItem(ResultSet rs) throws SQLException {
+        RequestItem item = new RequestItem();
+        item.setRequestId(rs.getLong("RequestId"));
+        item.setProductId(rs.getLong("ProductId"));
+        item.setQuantity(rs.getInt("Quantity"));
+        
+        long locationId = rs.getLong("LocationId");
+        if (!rs.wasNull()) {
+            item.setLocationId(locationId);
+        }
+        
+        long sourceLocationId = rs.getLong("SourceLocationId");
+        if (!rs.wasNull()) {
+            item.setSourceLocationId(sourceLocationId);
+        }
+        
+        long destLocationId = rs.getLong("DestinationLocationId");
+        if (!rs.wasNull()) {
+            item.setDestinationLocationId(destLocationId);
+        }
+        
+        int receivedQty = rs.getInt("ReceivedQuantity");
+        if (!rs.wasNull()) {
+            item.setReceivedQuantity(receivedQty);
+        }
+        
+        int pickedQty = rs.getInt("PickedQuantity");
+        if (!rs.wasNull()) {
+            item.setPickedQuantity(pickedQty);
+        }
+        
+        return item;
+    }
 }
