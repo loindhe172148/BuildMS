@@ -59,6 +59,24 @@ public class ProductDAO {
         
         return products;
     }
+    public List<Product> getActive() {
+        String sql = "SELECT id, sku, name, unit, categoryId, isActive, createdAt FROM Products " +
+                     "WHERE isActive = 1 ORDER BY name";
+        List<Product> products = new ArrayList<>();
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            while (rs.next()) {
+                products.add(mapResultSetToProduct(rs));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return products;
+    }
     
     private Product mapResultSetToProduct(ResultSet rs) throws SQLException {
         Product product = new Product();
