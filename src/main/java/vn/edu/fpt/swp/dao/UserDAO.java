@@ -321,5 +321,86 @@ public class UserDAO {
      * @param user User to update
      * @return true if successful
      */
-
+    public boolean update(User user) {
+        String sql = "UPDATE Users SET username = ?, name = ?, email = ?, role = ?, warehouseId = ? WHERE id = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, user.getUsername());
+            stmt.setString(2, user.getName());
+            stmt.setString(3, user.getEmail());
+            stmt.setString(4, user.getRole());
+            
+            if (user.getWarehouseId() != null) {
+                stmt.setLong(5, user.getWarehouseId());
+            } else {
+                stmt.setNull(5, Types.BIGINT);
+            }
+            
+            stmt.setLong(6, user.getId());
+            
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * Toggle user status
+     * @param id User ID
+     * @param newStatus New status (Active/Inactive)
+     * @return true if successful
+     */
+    public boolean toggleStatus(Long id, String newStatus) {
+        String sql = "UPDATE Users SET status = ? WHERE id = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, newStatus);
+            stmt.setLong(2, id);
+            
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    /**
+     * Map ResultSet to User object
+     * @param rs ResultSet
+     * @return User object
+     */
+    private User mapResultSetToUser(ResultSet rs) throws SQLException {
+        User user = new User();
+        user.setId(rs.getLong("id"));
+        user.setUsername(rs.getString("username"));
+        user.setName(rs.getString("name"));
+        user.setEmail(rs.getString("email"));
+        user.setPasswordHash(rs.getString("passwordHash"));
+        user.setRole(rs.getString("role"));
+        user.setStatus(rs.getString("status"));
+        
+        Long warehouseId = rs.getLong("warehouseId");
+        if (!rs.wasNull()) {
+            user.setWarehouseId(warehouseId);
+        }
+        
+        Timestamp createdAt = rs.getTimestamp("createdAt");
+        if (createdAt != null) {
+            user.setCreatedAt(createdAt.toLocalDateTime());
+        }
+        
+        Timestamp lastLogin = rs.getTimestamp("lastLogin");
+        if (lastLogin != null) {
+            user.setLastLogin(lastLogin.toLocalDateTime());
+        }
+        
+        return user;
+    }
 }
