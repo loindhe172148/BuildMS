@@ -13,7 +13,7 @@
     </jsp:include>
 </head>
 <body>
-    <!-- Layout wrapper -->
+    <!-- Layout wrapper update-->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             
