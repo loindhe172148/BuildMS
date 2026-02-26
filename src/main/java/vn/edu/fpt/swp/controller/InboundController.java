@@ -1,12 +1,17 @@
 package vn.edu.fpt.swp.controller;
 
+import vn.edu.fpt.swp.model.RequestItem;
+import vn.edu.fpt.swp.model.Location;
+import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.model.Request;
+import vn.edu.fpt.swp.model.Product;
+import vn.edu.fpt.swp.model.Warehouse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import vn.edu.fpt.swp.model.*;
 import vn.edu.fpt.swp.service.InboundService;
 
 import java.io.IOException;
