@@ -1,7 +1,7 @@
-package service;
+package vn.edu.fpt.swp.service;
 
-import dao.LocationDAO;
-import model.Location;
+import vn.edu.fpt.swp.dao.LocationDAO;
+import vn.edu.fpt.swp.model.Location;
 
 import java.util.List;
 

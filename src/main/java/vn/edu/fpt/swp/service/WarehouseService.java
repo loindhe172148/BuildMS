@@ -1,7 +1,7 @@
-package service;
+package vn.edu.fpt.swp.service;
 
-import dao.WarehouseDAO;
-import model.Warehouse;
+import vn.edu.fpt.swp.dao.WarehouseDAO;
+import vn.edu.fpt.swp.model.Warehouse;
 
 import java.util.List;
 

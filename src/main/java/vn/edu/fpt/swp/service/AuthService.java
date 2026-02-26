@@ -1,8 +1,8 @@
-package service;
+package vn.edu.fpt.swp.service;
 
-import dao.UserDAO;
-import model.User;
-import util.PasswordUtil;
+import vn.edu.fpt.swp.dao.UserDAO;
+import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.util.PasswordUtil;
 
 /**
  * Service class for authentication operations

@@ -1,4 +1,4 @@
-package model;
+package vn.edu.fpt.swp.model;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;

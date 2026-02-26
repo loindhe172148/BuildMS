@@ -1,18 +1,18 @@
-package service;
+package vn.edu.fpt.swp.service;
 
-import model.RequestItem;
-import model.Location;
-import model.User;
-import model.Request;
-import model.Product;
-import model.Warehouse;
-import dao.RequestDAO;
-import dao.InventoryDAO;
-import dao.WarehouseDAO;
-import dao.ProductDAO;
-import dao.RequestItemDAO;
-import dao.UserDAO;
-import dao.LocationDAO;
+import vn.edu.fpt.swp.model.RequestItem;
+import vn.edu.fpt.swp.model.Location;
+import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.model.Request;
+import vn.edu.fpt.swp.model.Product;
+import vn.edu.fpt.swp.model.Warehouse;
+import vn.edu.fpt.swp.dao.RequestDAO;
+import vn.edu.fpt.swp.dao.InventoryDAO;
+import vn.edu.fpt.swp.dao.WarehouseDAO;
+import vn.edu.fpt.swp.dao.ProductDAO;
+import vn.edu.fpt.swp.dao.RequestItemDAO;
+import vn.edu.fpt.swp.dao.UserDAO;
+import vn.edu.fpt.swp.dao.LocationDAO;
 
 import java.util.ArrayList;
 import java.util.List;

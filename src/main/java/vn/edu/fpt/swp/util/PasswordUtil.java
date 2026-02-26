@@ -1,4 +1,4 @@
-package util;
+package vn.edu.fpt.swp.util;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

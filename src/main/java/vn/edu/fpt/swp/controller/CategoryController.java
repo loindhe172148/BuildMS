@@ -1,4 +1,4 @@
-package controller;
+package vn.edu.fpt.swp.controller;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -6,9 +6,9 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import model.Category;
-import model.User;
-import service.CategoryService;
+import vn.edu.fpt.swp.model.Category;
+import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.service.CategoryService;
 
 import java.io.IOException;
 import java.util.List;

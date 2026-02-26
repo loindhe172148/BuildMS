@@ -1,7 +1,7 @@
-package dao;
+package vn.edu.fpt.swp.dao;
 
-import model.Inventory;
-import util.DBConnection;
+import vn.edu.fpt.swp.model.Inventory;
+import vn.edu.fpt.swp.util.DBConnection;
 
 import java.sql.*;
 import java.util.ArrayList;

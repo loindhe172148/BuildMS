@@ -1,11 +1,11 @@
-package filter;
+package vn.edu.fpt.swp.filter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import model.User;
+import vn.edu.fpt.swp.model.User;
 
 import java.io.IOException;
 import java.util.*;

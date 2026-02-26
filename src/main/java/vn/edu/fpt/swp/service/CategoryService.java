@@ -1,7 +1,7 @@
-package service;
+package vn.edu.fpt.swp.service;
 
-import dao.CategoryDAO;
-import model.Category;
+import vn.edu.fpt.swp.dao.CategoryDAO;
+import vn.edu.fpt.swp.model.Category;
 
 import java.util.List;
 

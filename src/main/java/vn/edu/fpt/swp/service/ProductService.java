@@ -1,7 +1,7 @@
-package service;
+package vn.edu.fpt.swp.service;
 
-import dao.ProductDAO;
-import model.Product;
+import vn.edu.fpt.swp.dao.ProductDAO;
+import vn.edu.fpt.swp.model.Product;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package controller;
+package vn.edu.fpt.swp.controller;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;

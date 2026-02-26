@@ -1,4 +1,4 @@
-package controller;
+package vn.edu.fpt.swp.controller;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -6,11 +6,11 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import model.Location;
-import model.User;
-import model.Warehouse;
-import service.LocationService;
-import service.WarehouseService;
+import vn.edu.fpt.swp.model.Location;
+import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.model.Warehouse;
+import vn.edu.fpt.swp.service.LocationService;
+import vn.edu.fpt.swp.service.WarehouseService;
 
 import java.io.IOException;
 import java.util.List;

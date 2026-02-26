@@ -1,4 +1,4 @@
-package controller;
+package vn.edu.fpt.swp.controller;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -6,8 +6,8 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import model.User;
-import service.AuthService;
+import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.service.AuthService;
 
 import java.io.IOException;
 

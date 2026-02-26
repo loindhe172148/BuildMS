@@ -1,7 +1,7 @@
-package dao;
+package vn.edu.fpt.swp.dao;
 
-import model.Product;
-import util.DBConnection;
+import vn.edu.fpt.swp.model.Product;
+import vn.edu.fpt.swp.util.DBConnection;
 
 import java.sql.*;
 import java.time.LocalDateTime;
