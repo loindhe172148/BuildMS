@@ -95,7 +95,7 @@ public class SalesOrderController extends HttpServlet {
     /**
      * List all sales orders with optional status filter
      */
-    private void listOrders(HttpServletRequest request, HttpServletResponse response)
+private void listOrders(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String status = request.getParameter("status");
         
@@ -167,7 +167,7 @@ public class SalesOrderController extends HttpServlet {
             
             if (productIds == null || productIds.length == 0) {
                 request.setAttribute("errorMessage", "At least one item is required");
-                showCreateForm(request, response);
+showCreateForm(request, response);
                 return;
             }
             
@@ -235,7 +235,7 @@ public class SalesOrderController extends HttpServlet {
             request.setAttribute("customer", customer);
             request.setAttribute("creator", creator);
             request.setAttribute("items", items);
-            request.setAttribute("relatedRequests", relatedRequests);
+request.setAttribute("relatedRequests", relatedRequests);
             
             // Check success message
             String success = request.getParameter("success");
@@ -306,7 +306,7 @@ public class SalesOrderController extends HttpServlet {
             }
             
             Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
-            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
+List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
             List<Warehouse> warehouses = salesOrderService.getAllWarehouses();
             
             request.setAttribute("order", order);
@@ -368,7 +368,7 @@ public class SalesOrderController extends HttpServlet {
             }
             
             Request outboundRequest = salesOrderService.generateOutboundRequest(
-                orderId, warehouseId, currentUser.getId(), 
+orderId, warehouseId, currentUser.getId(), 
                 quantities.isEmpty() ? null : quantities);
             
             if (outboundRequest != null) {
@@ -439,7 +439,7 @@ public class SalesOrderController extends HttpServlet {
             boolean success = salesOrderService.cancelOrder(orderId, currentUser.getId(), reason);
             
             if (success) {
-                response.sendRedirect(request.getContextPath() + 
+response.sendRedirect(request.getContextPath() + 
                     "/sales-order?success=Sales order cancelled successfully");
             } else {
                 request.setAttribute("errorMessage", "Failed to cancel order");
