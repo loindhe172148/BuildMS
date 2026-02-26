@@ -280,7 +280,111 @@ public class SalesOrderController extends HttpServlet {
         }
     }
     
+    /**
+     * UC-SO-003: Show generate outbound form
+     */
+    private void showGenerateOutboundForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Manager/Admin can generate outbound
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Managers can generate outbound requests");
+            listOrders(request, response);
+            return;
+        }
+        
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            
+            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
+            if (order == null || !"Confirmed".equals(order.getStatus())) {
+                request.setAttribute("errorMessage", "Order must be in Confirmed status");
+                listOrders(request, response);
+                return;
+            }
+            
+            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
+            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
+            List<Warehouse> warehouses = salesOrderService.getAllWarehouses();
+            
+            request.setAttribute("order", order);
+            request.setAttribute("customer", customer);
+            request.setAttribute("items", items);
+            request.setAttribute("warehouses", warehouses);
+            
+            // If warehouse selected, check availability
+            String warehouseIdStr = request.getParameter("warehouseId");
+            if (warehouseIdStr != null && !warehouseIdStr.isEmpty()) {
+                Long warehouseId = Long.parseLong(warehouseIdStr);
+                List<Map<String, Object>> availability = 
+                    salesOrderService.checkInventoryAvailability(orderId, warehouseId);
+                request.setAttribute("availability", availability);
+                request.setAttribute("selectedWarehouseId", warehouseId);
+            }
+            
+            request.getRequestDispatcher("/WEB-INF/views/sales-order/generate-outbound.jsp")
+                   .forward(request, response);
+                   
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid order ID");
+            listOrders(request, response);
+        }
+    }
     
+    /**
+     * UC-SO-003: Generate outbound request
+     */
+    private void generateOutbound(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Manager/Admin can generate outbound
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Managers can generate outbound requests");
+            listOrders(request, response);
+            return;
+        }
+        
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            Long warehouseId = Long.parseLong(request.getParameter("warehouseId"));
+            
+            // Parse quantities (optional custom quantities)
+            Map<Long, Integer> quantities = new HashMap<>();
+            String[] productIds = request.getParameterValues("productId[]");
+            String[] qtyValues = request.getParameterValues("fulfillQuantity[]");
+            
+            if (productIds != null && qtyValues != null) {
+                for (int i = 0; i < productIds.length; i++) {
+                    Long productId = Long.parseLong(productIds[i]);
+                    Integer qty = Integer.parseInt(qtyValues[i]);
+                    if (qty > 0) {
+                        quantities.put(productId, qty);
+                    }
+                }
+            }
+            
+            Request outboundRequest = salesOrderService.generateOutboundRequest(
+                orderId, warehouseId, currentUser.getId(), 
+                quantities.isEmpty() ? null : quantities);
+            
+            if (outboundRequest != null) {
+                response.sendRedirect(request.getContextPath() + 
+                    "/sales-order?action=view&id=" + orderId + 
+                    "&success=Outbound request " + outboundRequest.getId() + " generated successfully");
+            } else {
+                request.setAttribute("errorMessage", "Failed to generate outbound request");
+                showGenerateOutboundForm(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid input");
+            listOrders(request, response);
+        }
+    }
     
     /**
      * UC-SO-004: Show cancel order form
