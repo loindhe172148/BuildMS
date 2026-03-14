@@ -694,39 +694,5 @@ public class TransferController extends HttpServlet {
     /**
      * UC-TRF-004: Start inbound execution
      */
-    private void startInbound(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        try {
-            Long requestId = Long.parseLong(request.getParameter("id"));
-            
-            // Verify user is at destination warehouse (or Admin)
-            User currentUser = (User) request.getSession(false).getAttribute("user");
-            Request transfer = transferService.getTransferRequestById(requestId);
-            if (!"Admin".equals(currentUser.getRole())) {
-                Long userWarehouseId = currentUser.getWarehouseId();
-                if (transfer == null || userWarehouseId == null 
-                        || !userWarehouseId.equals(transfer.getDestinationWarehouseId())) {
-                    request.setAttribute("errorMessage", 
-                        "Only destination warehouse staff can start transfer inbound.");
-                    listTransfers(request, response);
-                    return;
-                }
-            }
-            
-            boolean success = transferService.startInboundExecution(requestId);
-            
-            if (success) {
-                request.getSession().setAttribute("successMessage", "Inbound receiving started");
-                response.sendRedirect(request.getContextPath() + 
-                    "/transfer?action=execute-inbound&id=" + requestId);
-            } else {
-                request.setAttribute("errorMessage", "Failed to start inbound execution");
-                showInboundExecutionForm(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid request ID");
-            listTransfers(request, response);
-        }
-    }
+    
 }
