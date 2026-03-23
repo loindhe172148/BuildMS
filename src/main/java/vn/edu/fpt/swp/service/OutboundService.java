@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.*;
 import vn.edu.fpt.swp.model.*;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +25,8 @@ public class OutboundService {
     private WarehouseDAO warehouseDAO;
     private LocationDAO locationDAO;
     private UserDAO userDAO;
+    private SalesOrderDAO salesOrderDAO;
+    private SalesOrderItemDAO salesOrderItemDAO;
     
     // Valid outbound reasons for internal requests
     private static final List<String> VALID_REASONS = Arrays.asList(
@@ -41,6 +45,8 @@ public class OutboundService {
         this.warehouseDAO = new WarehouseDAO();
         this.locationDAO = new LocationDAO();
         this.userDAO = new UserDAO();
+        this.salesOrderDAO = new SalesOrderDAO();
+        this.salesOrderItemDAO = new SalesOrderItemDAO();
     }
     
     /**
@@ -162,7 +168,14 @@ public class OutboundService {
             return false;
         }
         
-        return requestDAO.reject(requestId, rejectorId, reason);
+        boolean rejected = requestDAO.reject(requestId, rejectorId, reason);
+        
+        // If outbound is linked to a sales order, revert SO status to Confirmed
+        if (rejected && request.getSalesOrderId() != null) {
+            salesOrderDAO.updateStatus(request.getSalesOrderId(), "Confirmed");
+        }
+        
+        return rejected;
     }
     
     /**
@@ -202,6 +215,20 @@ public class OutboundService {
             return false;
         }
         
+        // Get existing item to add to current picked quantity
+        RequestItem existingItem = requestItemDAO.findByRequestAndProduct(requestId, productId);
+        if (existingItem == null) {
+            return false;
+        }
+        
+        int currentPicked = existingItem.getPickedQuantity() != null ? existingItem.getPickedQuantity() : 0;
+        int newTotal = currentPicked + pickedQuantity;
+        
+        // Cannot exceed requested quantity
+        if (newTotal > existingItem.getQuantity()) {
+            return false;
+        }
+        
         // Verify picked quantity doesn't exceed available inventory
         Long warehouseId = request.getSourceWarehouseId();
         if (warehouseId != null) {
@@ -211,7 +238,7 @@ public class OutboundService {
             }
         }
         
-        return requestItemDAO.updatePickedQuantity(requestId, productId, pickedQuantity);
+        return requestItemDAO.updatePickedQuantity(requestId, productId, newTotal);
     }
     
     /**
@@ -286,7 +313,42 @@ public class OutboundService {
         }
         
         // Mark request as completed
-        return requestDAO.complete(requestId, completedBy);
+        boolean completed = requestDAO.complete(requestId, completedBy);
+        
+        // If outbound is linked to a sales order, update SO fulfillment tracking
+        if (completed && request.getSalesOrderId() != null) {
+            Long salesOrderId = request.getSalesOrderId();
+            
+            // Update fulfilled quantities on SO items
+            for (RequestItem item : items) {
+                Integer pickedQty = item.getPickedQuantity();
+                if (pickedQty != null && pickedQty > 0) {
+                    SalesOrderItem soItem = salesOrderItemDAO.findByOrderAndProduct(salesOrderId, item.getProductId());
+                    if (soItem != null) {
+                        int newFulfilled = soItem.getFulfilledQuantity() + pickedQty;
+                        salesOrderItemDAO.updateFulfilledQuantity(salesOrderId, item.getProductId(), newFulfilled);
+                    }
+                }
+            }
+            
+            // Check if all SO items are fully fulfilled
+            List<SalesOrderItem> soItems = salesOrderItemDAO.findBySalesOrderId(salesOrderId);
+            boolean allFulfilled = true;
+            for (SalesOrderItem soItem : soItems) {
+                // Re-read to get updated fulfilled qty
+                SalesOrderItem refreshed = salesOrderItemDAO.findByOrderAndProduct(salesOrderId, soItem.getProductId());
+                if (refreshed.getRemainingQuantity() > 0) {
+                    allFulfilled = false;
+                    break;
+                }
+            }
+            
+            if (allFulfilled) {
+                salesOrderDAO.markCompleted(salesOrderId);
+            }
+        }
+        
+        return completed;
     }
     
     /**
@@ -314,6 +376,10 @@ public class OutboundService {
      */
     public List<Request> searchOutboundRequests(String status, Long warehouseId) {
         return requestDAO.search("Outbound", status, warehouseId);
+    }
+
+    public PageResult<Request> searchOutboundRequestsPaginated(String status, Long warehouseId, PageRequest pageRequest) {
+        return requestDAO.searchPaginated("Outbound", status, warehouseId, pageRequest);
     }
     
     /**
@@ -382,6 +448,14 @@ public class OutboundService {
     public List<Warehouse> getAllWarehouses() {
         return warehouseDAO.getAll();
     }
+
+    /**
+     * Get all users — used for batch display on the list page.
+     * @return List of all users
+     */
+    public List<User> getAllUsers() {
+        return userDAO.getAll();
+    }
     
     /**
      * Get all active products
@@ -406,5 +480,18 @@ public class OutboundService {
      */
     public List<String> getValidReasons() {
         return new ArrayList<>(VALID_REASONS);
+    }
+    
+    /**
+     * Update notes on a request (e.g. dispatch/shipping info)
+     * @param requestId Request ID
+     * @param notes New notes text
+     * @return true if successful
+     */
+    public boolean updateRequestNotes(Long requestId, String notes) {
+        if (requestId == null) {
+            return false;
+        }
+        return requestDAO.updateNotes(requestId, notes);
     }
 }
