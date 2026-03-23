@@ -180,7 +180,10 @@ public class OutboundController extends HttpServlet {
         String warehouseIdStr = request.getParameter("warehouseId");
         
         Long warehouseId = null;
-        if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
+        if (isWarehouseScoped(request)) {
+            // Staff/Manager can only see requests for their assigned warehouse
+            warehouseId = getAssignedWarehouseId(request);
+        } else if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
             try {
                 warehouseId = Long.parseLong(warehouseIdStr.trim());
             } catch (NumberFormatException e) {
@@ -188,18 +191,21 @@ public class OutboundController extends HttpServlet {
             }
         }
         
-        List<Request> requests;
-        if ((status != null && !status.trim().isEmpty()) || warehouseId != null) {
-            requests = outboundService.searchOutboundRequests(status, warehouseId);
-        } else {
-            requests = outboundService.getAllOutboundRequests();
+        // Normalize status filter
+        String selectedStatus = status != null ? status.trim() : null;
+        if (selectedStatus != null && selectedStatus.isEmpty()) {
+            selectedStatus = null;
         }
+        
+        // Get paginated results
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Request> requestPage = outboundService.searchOutboundRequestsPaginated(selectedStatus, warehouseId, pageRequest);
         
         // Get warehouses for filter
         List<Warehouse> warehouses = outboundService.getAllWarehouses();
         
         // Build lookup maps for display
-        for (Request req : requests) {
+        for (Request req : requestPage.getContent()) {
             if (req.getCreatedBy() != null) {
                 User creator = outboundService.getUserById(req.getCreatedBy());
                 if (creator != null) {
@@ -214,9 +220,9 @@ public class OutboundController extends HttpServlet {
             }
         }
         
-        request.setAttribute("requests", requests);
+        request.setAttribute("requestPage", requestPage);
         request.setAttribute("warehouses", warehouses);
-        request.setAttribute("selectedStatus", status);
+        request.setAttribute("selectedStatus", selectedStatus);
         request.setAttribute("selectedWarehouseId", warehouseId);
         
         request.getRequestDispatcher("/WEB-INF/views/outbound/list.jsp").forward(request, response);
