@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.CategoryDAO;
 import vn.edu.fpt.swp.model.Category;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.List;
 
@@ -121,6 +123,16 @@ public class CategoryService {
     public int getProductCount(Long categoryId) {
         return categoryDAO.countProducts(categoryId);
     }
+
+    /**
+     * Get product counts for ALL categories in one DB round-trip.
+     * Use this on the category list page instead of calling getProductCount() per category.
+     *
+     * @return Map of categoryId -> product count
+     */
+    public java.util.Map<Long, Integer> getAllProductCounts() {
+        return categoryDAO.getAllProductCounts();
+    }
     
     /**
      * Search categories
@@ -129,5 +141,9 @@ public class CategoryService {
      */
     public List<Category> searchCategories(String keyword) {
         return categoryDAO.search(keyword);
+    }
+
+    public PageResult<Category> searchCategoriesPaginated(String keyword, PageRequest pageRequest) {
+        return categoryDAO.searchPaginated(keyword, pageRequest);
     }
 }

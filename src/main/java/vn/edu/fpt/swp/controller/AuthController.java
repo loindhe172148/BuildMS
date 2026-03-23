@@ -7,7 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.model.Warehouse;
 import vn.edu.fpt.swp.service.AuthService;
+import vn.edu.fpt.swp.service.WarehouseService;
 
 import java.io.IOException;
 
@@ -24,10 +26,12 @@ public class AuthController extends HttpServlet {
     private static final long serialVersionUID = 1L;
     
     private AuthService authService;
+    private WarehouseService warehouseService;
     
     @Override
     public void init() throws ServletException {
         authService = new AuthService();
+        warehouseService = new WarehouseService();
     }
     
     @Override
@@ -141,6 +145,20 @@ public class AuthController extends HttpServlet {
         session.setAttribute("userId", user.getId());
         session.setAttribute("role", user.getRole());
         session.setAttribute("lastActivityTime", System.currentTimeMillis());
+        
+        // Store warehouse name in session for display in navbar
+        if (user.getWarehouseId() != null) {
+            try {
+                Warehouse warehouse = warehouseService.getWarehouseById(user.getWarehouseId());
+                if (warehouse != null) {
+                    session.setAttribute("userWarehouseName", warehouse.getName());
+                }
+            } catch (Exception e) {
+                // Silently ignore — warehouse name is non-critical
+            }
+        } else {
+            session.removeAttribute("userWarehouseName");
+        }
         
         // Step 7: Update Last Login (already done in authService.authenticate)
         
