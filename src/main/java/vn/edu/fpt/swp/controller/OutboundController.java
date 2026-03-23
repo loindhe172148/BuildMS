@@ -204,23 +204,26 @@ public class OutboundController extends HttpServlet {
         // Get warehouses for filter
         List<Warehouse> warehouses = outboundService.getAllWarehouses();
         
-        // Build lookup maps for display
-        for (Request req : requestPage.getContent()) {
-            if (req.getCreatedBy() != null) {
-                User creator = outboundService.getUserById(req.getCreatedBy());
-                if (creator != null) {
-                    request.setAttribute("userName_" + req.getCreatedBy(), creator.getName());
-                }
-            }
-            if (req.getSourceWarehouseId() != null) {
-                Warehouse wh = outboundService.getWarehouseById(req.getSourceWarehouseId());
-                if (wh != null) {
-                    request.setAttribute("warehouseName_" + req.getSourceWarehouseId(), wh.getName());
-                }
-            }
+        // Build lookup maps for display using pre-loaded collections (no N+1 DB calls)
+        java.util.Map<Long, String> warehouseMap = new java.util.HashMap<>();
+        for (Warehouse wh : warehouses) {
+            warehouseMap.put(wh.getId(), wh.getName());
         }
         
-        request.setAttribute("requestPage", requestPage);
+        java.util.Map<Long, String> userMap = new java.util.HashMap<>();
+        for (User u : outboundService.getAllUsers()) {
+            userMap.put(u.getId(), u.getName());
+        }
+        
+        // Build pagination parameters
+        java.util.Map<String, String> paginationParams = new java.util.LinkedHashMap<>();
+        paginationParams.put("status", selectedStatus);
+        if (isWarehouseScoped(request)) {
+            paginationParams.put("warehouseId", warehouseId != null ? String.valueOf(warehouseId) : null);
+        }
+        paginationParams.put("size", String.valueOf(pageRequest.getPageSize()));
+        
+        request.setAttribute("requests", requestPage.getItems());
         request.setAttribute("warehouses", warehouses);
         request.setAttribute("selectedStatus", selectedStatus);
         request.setAttribute("selectedWarehouseId", warehouseId);
