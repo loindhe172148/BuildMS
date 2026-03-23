@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.dao;
 
 import vn.edu.fpt.swp.model.SalesOrder;
 import vn.edu.fpt.swp.util.DBConnection;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -23,8 +25,8 @@ public class SalesOrderDAO {
             return null;
         }
         
-        String sql = "INSERT INTO SalesOrders (OrderNo, CustomerId, Status, CreatedBy, CreatedAt) " +
-                     "VALUES (?, ?, ?, ?, GETDATE())";
+        String sql = "INSERT INTO SalesOrders (OrderNo, CustomerId, Status, CreatedBy, CreatedAt, OrderDate, RequiredDeliveryDate, Notes) " +
+                     "VALUES (?, ?, ?, ?, GETDATE(), ?, ?, ?)";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -33,6 +35,22 @@ public class SalesOrderDAO {
             stmt.setLong(2, salesOrder.getCustomerId());
             stmt.setString(3, salesOrder.getStatus() != null ? salesOrder.getStatus() : "Draft");
             stmt.setLong(4, salesOrder.getCreatedBy());
+            
+            if (salesOrder.getOrderDate() != null) {
+                stmt.setTimestamp(5, Timestamp.valueOf(salesOrder.getOrderDate()));
+            } else {
+                stmt.setNull(5, Types.TIMESTAMP);
+            }
+            if (salesOrder.getRequiredDeliveryDate() != null) {
+                stmt.setTimestamp(6, Timestamp.valueOf(salesOrder.getRequiredDeliveryDate()));
+            } else {
+                stmt.setNull(6, Types.TIMESTAMP);
+            }
+            if (salesOrder.getNotes() != null) {
+                stmt.setString(7, salesOrder.getNotes());
+            } else {
+                stmt.setNull(7, Types.NVARCHAR);
+            }
             
             int affectedRows = stmt.executeUpdate();
             
@@ -62,6 +80,7 @@ public class SalesOrderDAO {
         }
         
         String sql = "SELECT Id, OrderNo, CustomerId, Status, CreatedBy, CreatedAt, " +
+                     "OrderDate, RequiredDeliveryDate, Notes, " +
                      "ConfirmedBy, ConfirmedDate, CancelledBy, CancelledDate, CancellationReason " +
                      "FROM SalesOrders WHERE Id = ?";
         
@@ -93,6 +112,7 @@ public class SalesOrderDAO {
         }
         
         String sql = "SELECT Id, OrderNo, CustomerId, Status, CreatedBy, CreatedAt, " +
+                     "OrderDate, RequiredDeliveryDate, Notes, " +
                      "ConfirmedBy, ConfirmedDate, CancelledBy, CancelledDate, CancellationReason " +
                      "FROM SalesOrders WHERE OrderNo = ?";
         
@@ -121,6 +141,7 @@ public class SalesOrderDAO {
         List<SalesOrder> orders = new ArrayList<>();
         
         String sql = "SELECT Id, OrderNo, CustomerId, Status, CreatedBy, CreatedAt, " +
+                     "OrderDate, RequiredDeliveryDate, Notes, " +
                      "ConfirmedBy, ConfirmedDate, CancelledBy, CancelledDate, CancellationReason " +
                      "FROM SalesOrders ORDER BY CreatedAt DESC";
         
@@ -151,6 +172,7 @@ public class SalesOrderDAO {
         }
         
         String sql = "SELECT Id, OrderNo, CustomerId, Status, CreatedBy, CreatedAt, " +
+                     "OrderDate, RequiredDeliveryDate, Notes, " +
                      "ConfirmedBy, ConfirmedDate, CancelledBy, CancelledDate, CancellationReason " +
                      "FROM SalesOrders WHERE Status = ? ORDER BY CreatedAt DESC";
         
@@ -170,6 +192,60 @@ public class SalesOrderDAO {
         
         return orders;
     }
+
+    public PageResult<SalesOrder> findPaginated(String status, PageRequest pageRequest) {
+        List<SalesOrder> orders = new ArrayList<>();
+
+        StringBuilder fromClause = new StringBuilder(" FROM SalesOrders WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (status != null && !status.trim().isEmpty()) {
+            fromClause.append("AND Status = ? ");
+            params.add(status.trim());
+        }
+
+        String selectColumns = "Id, OrderNo, CustomerId, Status, CreatedBy, CreatedAt, " +
+            "OrderDate, RequiredDeliveryDate, Notes, " +
+            "ConfirmedBy, ConfirmedDate, CancelledBy, CancelledDate, CancellationReason";
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT " + selectColumns + fromClause
+            + "ORDER BY CreatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        orders.add(mapResultSetToSalesOrder(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(orders, totalItems, pageRequest);
+    }
     
     /**
      * Get sales orders by customer
@@ -184,6 +260,7 @@ public class SalesOrderDAO {
         }
         
         String sql = "SELECT Id, OrderNo, CustomerId, Status, CreatedBy, CreatedAt, " +
+                     "OrderDate, RequiredDeliveryDate, Notes, " +
                      "ConfirmedBy, ConfirmedDate, CancelledBy, CancelledDate, CancellationReason " +
                      "FROM SalesOrders WHERE CustomerId = ? ORDER BY CreatedAt DESC";
         
@@ -443,6 +520,18 @@ public class SalesOrderDAO {
         if (createdAt != null) {
             order.setCreatedAt(createdAt.toLocalDateTime());
         }
+        
+        Timestamp orderDate = rs.getTimestamp("OrderDate");
+        if (orderDate != null) {
+            order.setOrderDate(orderDate.toLocalDateTime());
+        }
+        
+        Timestamp requiredDeliveryDate = rs.getTimestamp("RequiredDeliveryDate");
+        if (requiredDeliveryDate != null) {
+            order.setRequiredDeliveryDate(requiredDeliveryDate.toLocalDateTime());
+        }
+        
+        order.setNotes(rs.getString("Notes"));
         
         Long confirmedBy = rs.getLong("ConfirmedBy");
         if (!rs.wasNull()) {

@@ -99,7 +99,7 @@ public class SalesOrderItemDAO {
             return items;
         }
         
-        String sql = "SELECT SalesOrderId, ProductId, Quantity FROM SalesOrderItems WHERE SalesOrderId = ?";
+        String sql = "SELECT SalesOrderId, ProductId, Quantity, FulfilledQuantity FROM SalesOrderItems WHERE SalesOrderId = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -129,7 +129,7 @@ public class SalesOrderItemDAO {
             return null;
         }
         
-        String sql = "SELECT SalesOrderId, ProductId, Quantity FROM SalesOrderItems " +
+        String sql = "SELECT SalesOrderId, ProductId, Quantity, FulfilledQuantity FROM SalesOrderItems " +
                      "WHERE SalesOrderId = ? AND ProductId = ?";
         
         try (Connection conn = DBConnection.getConnection();
@@ -261,6 +261,35 @@ public class SalesOrderItemDAO {
     }
     
     /**
+     * Update fulfilled quantity for a sales order item
+     * @param salesOrderId Sales Order ID
+     * @param productId Product ID
+     * @param fulfilledQuantity New fulfilled quantity
+     * @return true if successful
+     */
+    public boolean updateFulfilledQuantity(Long salesOrderId, Long productId, Integer fulfilledQuantity) {
+        if (salesOrderId == null || productId == null || fulfilledQuantity == null || fulfilledQuantity < 0) {
+            return false;
+        }
+        
+        String sql = "UPDATE SalesOrderItems SET FulfilledQuantity = ? WHERE SalesOrderId = ? AND ProductId = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, fulfilledQuantity);
+            stmt.setLong(2, salesOrderId);
+            stmt.setLong(3, productId);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return false;
+    }
+    
+    /**
      * Map ResultSet to SalesOrderItem object
      */
     private SalesOrderItem mapResultSetToItem(ResultSet rs) throws SQLException {
@@ -268,6 +297,7 @@ public class SalesOrderItemDAO {
         item.setSalesOrderId(rs.getLong("SalesOrderId"));
         item.setProductId(rs.getLong("ProductId"));
         item.setQuantity(rs.getInt("Quantity"));
+        item.setFulfilledQuantity(rs.getInt("FulfilledQuantity"));
         return item;
     }
 }
