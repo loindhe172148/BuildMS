@@ -227,6 +227,12 @@ public class OutboundController extends HttpServlet {
         request.setAttribute("warehouses", warehouses);
         request.setAttribute("selectedStatus", selectedStatus);
         request.setAttribute("selectedWarehouseId", warehouseId);
+        request.setAttribute("isManager", isWarehouseScoped(request));
+        request.setAttribute("currentPage", requestPage.getCurrentPage());
+        request.setAttribute("totalPages", requestPage.getTotalPages());
+        request.setAttribute("pageSize", requestPage.getPageSize());
+        request.setAttribute("totalItems", requestPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/outbound", paginationParams));
         
         request.getRequestDispatcher("/WEB-INF/views/outbound/list.jsp").forward(request, response);
     }
