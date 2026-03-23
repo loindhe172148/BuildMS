@@ -517,6 +517,19 @@ public class OutboundController extends HttpServlet {
         
         try {
             Long requestId = Long.parseLong(idStr.trim());
+            
+            // Staff/Manager can only approve requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request outboundRequest = outboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (outboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to approve this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             Long userId = getCurrentUserId(request);
             
             boolean approved = outboundService.approveRequest(requestId, userId);
@@ -563,6 +576,19 @@ public class OutboundController extends HttpServlet {
         
         try {
             Long requestId = Long.parseLong(idStr.trim());
+            
+            // Staff/Manager can only reject requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request outboundRequest = outboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (outboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to reject this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             Long userId = getCurrentUserId(request);
             
             boolean rejected = outboundService.rejectRequest(requestId, userId, reason.trim());
