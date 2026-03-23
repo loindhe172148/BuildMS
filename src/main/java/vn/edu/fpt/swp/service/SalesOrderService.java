@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.*;
 import vn.edu.fpt.swp.model.*;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -123,6 +125,10 @@ public class SalesOrderService {
      */
     public List<SalesOrder> getSalesOrdersByStatus(String status) {
         return salesOrderDAO.findByStatus(status);
+    }
+
+    public PageResult<SalesOrder> getSalesOrdersPaginated(String status, PageRequest pageRequest) {
+        return salesOrderDAO.findPaginated(status, pageRequest);
     }
     
     /**
@@ -441,6 +447,15 @@ public class SalesOrderService {
     // ========== Helper Methods ==========
     
     /**
+     * Get related requests (outbound) for a sales order
+     * @param salesOrderId Sales Order ID
+     * @return List of related requests
+     */
+    public List<Request> getRelatedRequests(Long salesOrderId) {
+        return requestDAO.findBySalesOrderId(salesOrderId);
+    }
+
+    /**
      * Get customer details for an order
      * @param customerId Customer ID
      * @return Customer if found
@@ -450,6 +465,14 @@ public class SalesOrderService {
     }
     
     /**
+     * Get all customers — used for batch display on the list page.
+     * @return List of all customers
+     */
+    public List<Customer> getAllCustomers() {
+        return customerDAO.getAll();
+    }
+
+    /**
      * Get user details
      * @param userId User ID
      * @return User if found
@@ -457,13 +480,12 @@ public class SalesOrderService {
     public User getUserById(Long userId) {
         return userDAO.findById(userId);
     }
-    
+
     /**
-     * Get outbound requests for a sales order
-     * @param salesOrderId Sales Order ID
-     * @return List of related requests
+     * Get all users — used for batch display on the list page.
+     * @return List of all users
      */
-    public List<Request> getRelatedRequests(Long salesOrderId) {
-        return requestDAO.findBySalesOrderId(salesOrderId);
+    public List<User> getAllUsers() {
+        return userDAO.getAll();
     }
 }
