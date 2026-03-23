@@ -418,6 +418,16 @@ public class OutboundController extends HttpServlet {
                 return;
             }
             
+            // Staff/Manager can only view requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to view this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             // Get items
             List<RequestItem> items = outboundService.getRequestItems(requestId);
             
