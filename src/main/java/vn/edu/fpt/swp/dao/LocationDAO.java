@@ -2,10 +2,14 @@ package vn.edu.fpt.swp.dao;
 
 import vn.edu.fpt.swp.model.Location;
 import vn.edu.fpt.swp.util.DBConnection;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Data Access Object for Location entity
@@ -428,6 +432,95 @@ public class LocationDAO {
         return 0;
     }
     
+    /**
+     * Get inventory item counts (distinct product lines with qty > 0) per location
+     * in a single query — avoids N+1 calls on the location list page.
+     *
+     * @return Map of locationId -> inventory item count
+     */
+    public Map<Long, Integer> getAllLocationInventoryCounts() {
+        Map<Long, Integer> result = new HashMap<>();
+        String sql = "SELECT LocationId, COUNT(*) AS cnt FROM Inventory WHERE Quantity > 0 GROUP BY LocationId";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                result.put(rs.getLong("LocationId"), rs.getInt("cnt"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
+    public PageResult<Location> searchPaginated(Long warehouseId, String type, Boolean isActive, String keyword,
+                                                PageRequest pageRequest) {
+        List<Location> locations = new ArrayList<>();
+        StringBuilder fromClause = new StringBuilder(" FROM Locations WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (warehouseId != null && warehouseId > 0) {
+            fromClause.append(" AND WarehouseId = ?");
+            params.add(warehouseId);
+        }
+
+        if (type != null && !type.trim().isEmpty()) {
+            fromClause.append(" AND Type = ?");
+            params.add(type.trim());
+        }
+
+        if (isActive != null) {
+            fromClause.append(" AND IsActive = ?");
+            params.add(isActive);
+        }
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            fromClause.append(" AND Code LIKE ?");
+            params.add("%" + keyword.trim() + "%");
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT Id, WarehouseId, Code, Type, IsActive" + fromClause
+            + " ORDER BY WarehouseId, Code OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        locations.add(mapResultSetToLocation(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(locations, totalItems, pageRequest);
+    }
+
     /**
      * Map ResultSet row to Location object
      */

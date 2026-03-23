@@ -1,6 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
@@ -11,7 +10,7 @@
       data-template="vertical-menu-template-free">
 <head>
     <jsp:include page="/WEB-INF/common/head.jsp">
-        <jsp:param name="pageTitle" value="Create Inbound Request" />
+        <jsp:param name="pageTitle" value="Create Internal Outbound" />
     </jsp:include>
 </head>
 <body>
@@ -21,8 +20,8 @@
             
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
-                <jsp:param name="activeMenu" value="inbound" />
-                <jsp:param name="activeSubMenu" value="inbound-create" />
+                <jsp:param name="activeMenu" value="outbound" />
+                <jsp:param name="activeSubMenu" value="outbound-create" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -43,9 +42,9 @@
                                     <a href="${contextPath}/dashboard">Dashboard</a>
                                 </li>
                                 <li class="breadcrumb-item">
-                                    <a href="${contextPath}/inbound">Inbound Requests</a>
+                                    <a href="${contextPath}/outbound">Outbound Requests</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">Create</li>
+                                <li class="breadcrumb-item active" aria-current="page">Create Internal</li>
                             </ol>
                         </nav>
                         
@@ -53,7 +52,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                <c:out value="${sessionScope.errorMessage}"/>
+                                ${sessionScope.errorMessage}
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -62,7 +61,7 @@
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-6">
                             <h4 class="mb-0">
-                                <i class="bx bx-plus-circle me-2"></i>Create Inbound Request
+                                <i class="bx bx-plus-circle me-2"></i>Create Internal Outbound Request
                             </h4>
                         </div>
                         
@@ -73,51 +72,43 @@
                                         <h5 class="mb-0">Request Details</h5>
                                     </div>
                                     <div class="card-body">
-                                        <form action="${contextPath}/inbound" method="post" id="inboundForm">
+                                        <form action="${contextPath}/outbound" method="post" id="outboundForm">
                                             <input type="hidden" name="action" value="create" />
                                             
-                                            <!-- Destination Warehouse -->
+                                            <!-- Source Warehouse -->
                                             <div class="mb-4">
-                                                <label for="warehouseId" class="form-label">Destination Warehouse <span class="text-danger">*</span></label>
-                                                <c:choose>
-                                                    <c:when test="${isManager}">
-                                                        <select class="form-select" id="warehouseId" disabled>
-                                                            <c:forEach var="wh" items="${warehouses}">
-                                                                <c:if test="${wh.id == lockedWarehouseId}">
-                                                                    <option value="<c:out value='${wh.id}'/>" selected><c:out value="${wh.name}"/> - <c:out value="${wh.location}"/></option>
-                                                                </c:if>
-                                                            </c:forEach>
-                                                        </select>
-                                                        <input type="hidden" name="warehouseId" value="${lockedWarehouseId}" />
-                                                    </c:when>
-                                                    <c:otherwise>
-                                                        <select class="form-select" id="warehouseId" name="warehouseId" required>
-                                                            <option value="">Select warehouse...</option>
-                                                            <c:forEach var="wh" items="${warehouses}">
-                                                                <option value="<c:out value='${wh.id}'/>"><c:out value="${wh.name}"/> - <c:out value="${wh.location}"/></option>
-                                                            </c:forEach>
-                                                        </select>
-                                                    </c:otherwise>
-                                                </c:choose>
+                                                <label for="warehouseId" class="form-label">Source Warehouse <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="warehouseId" name="warehouseId" required>
+                                                    <option value="">Select warehouse...</option>
+                                                    <c:forEach var="wh" items="${warehouses}">
+                                                        <option value="${wh.id}">${wh.name} - ${wh.location}</option>
+                                                    </c:forEach>
+                                                </select>
                                             </div>
                                             
-                                            <!-- Expected Delivery Date -->
+                                            <!-- Outbound Reason -->
                                             <div class="mb-4">
-                                                <label for="expectedDate" class="form-label">Expected Delivery Date</label>
-                                                <input type="date" class="form-control" id="expectedDate" name="expectedDate" />
+                                                <label for="reason" class="form-label">Outbound Reason <span class="text-danger">*</span></label>
+                                                <select class="form-select" id="reason" name="reason" required>
+                                                    <option value="">Select reason...</option>
+                                                    <c:forEach var="r" items="${reasons}">
+                                                        <option value="${r}">${r}</option>
+                                                    </c:forEach>
+                                                </select>
                                             </div>
                                             
-                                            <!-- Notes -->
+                                            <!-- Notes/Description -->
                                             <div class="mb-4">
-                                                <label for="notes" class="form-label">Notes</label>
+                                                <label for="notes" class="form-label">Description/Notes <span id="notesRequired" class="text-danger d-none">*</span></label>
                                                 <textarea class="form-control" id="notes" name="notes" rows="3" 
-                                                          placeholder="Add any notes or description..."></textarea>
+                                                          placeholder="Add description or notes..."></textarea>
+                                                <small class="text-muted">Required when reason is "Other"</small>
                                             </div>
                                             
                                             <hr class="my-4" />
                                             
                                             <!-- Items Section -->
-                                            <h6 class="mb-3">Request Items <span class="text-danger">*</span></h6>
+                                            <h6 class="mb-3">Items to Remove <span class="text-danger">*</span></h6>
                                             
                                             <div id="itemsContainer">
                                                 <!-- Item template will be added here -->
@@ -130,7 +121,7 @@
                                             <hr class="my-4" />
                                             
                                             <div class="d-flex justify-content-between">
-                                                <a href="${contextPath}/inbound" class="btn btn-outline-secondary">
+                                                <a href="${contextPath}/outbound" class="btn btn-outline-secondary">
                                                     <i class="bx bx-arrow-back me-1"></i>Cancel
                                                 </a>
                                                 <button type="submit" class="btn btn-primary">
@@ -146,25 +137,29 @@
                                 <!-- Help Card -->
                                 <div class="card mb-6">
                                     <div class="card-header">
-                                        <h6 class="mb-0"><i class="bx bx-info-circle me-2"></i>Guidelines</h6>
+                                        <h6 class="mb-0"><i class="bx bx-info-circle me-2"></i>Outbound Reasons</h6>
                                     </div>
                                     <div class="card-body">
                                         <ul class="list-unstyled mb-0">
-                                            <li class="mb-2">
-                                                <i class="bx bx-check text-success me-2"></i>
-                                                Select the destination warehouse
+                                            <li class="mb-3">
+                                                <strong>Damage/Disposal</strong>
+                                                <p class="text-muted small mb-0">Remove damaged or expired items</p>
                                             </li>
-                                            <li class="mb-2">
-                                                <i class="bx bx-check text-success me-2"></i>
-                                                Add at least one product
+                                            <li class="mb-3">
+                                                <strong>Return to Supplier</strong>
+                                                <p class="text-muted small mb-0">Return goods to vendor</p>
                                             </li>
-                                            <li class="mb-2">
-                                                <i class="bx bx-check text-success me-2"></i>
-                                                Quantities must be positive
+                                            <li class="mb-3">
+                                                <strong>Sample/Demo</strong>
+                                                <p class="text-muted small mb-0">Items for demonstration</p>
                                             </li>
-                                            <li class="mb-2">
-                                                <i class="bx bx-check text-success me-2"></i>
-                                                Target location is optional
+                                            <li class="mb-3">
+                                                <strong>Adjustment</strong>
+                                                <p class="text-muted small mb-0">Inventory corrections</p>
+                                            </li>
+                                            <li>
+                                                <strong>Other</strong>
+                                                <p class="text-muted small mb-0">Requires description</p>
                                             </li>
                                         </ul>
                                     </div>
@@ -187,7 +182,7 @@
                                             </div>
                                             <div class="d-flex align-items-center mb-2">
                                                 <span class="badge bg-primary me-2">3</span>
-                                                <span>Execution In Progress</span>
+                                                <span>Picking In Progress</span>
                                             </div>
                                             <div class="d-flex align-items-center">
                                                 <span class="badge bg-success me-2">4</span>
@@ -199,7 +194,7 @@
                             </div>
                         </div>
                         
-                    </main>
+                    </div>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />
@@ -242,20 +237,16 @@
                             </button>
                         </div>
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-md-8 mb-3">
                                 <label class="form-label">Product <span class="text-danger">*</span></label>
                                 <select class="form-select" name="productId" required>
                                     <option value="">Select product...</option>
                                     \${products.map(p => `<option value="\${p.id}">\${p.sku} - \${p.name}</option>`).join('')}
                                 </select>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-4 mb-3">
                                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="quantity" min="1" value="1" required />
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Target Location</label>
-                                <input type="number" class="form-control" name="locationId" placeholder="Optional" min="1" />
                             </div>
                         </div>
                     </div>
@@ -274,8 +265,22 @@
         
         document.getElementById('addItemBtn').addEventListener('click', addItem);
         
+        // Handle "Other" reason requiring notes
+        document.getElementById('reason').addEventListener('change', function() {
+            const notesRequired = document.getElementById('notesRequired');
+            const notesField = document.getElementById('notes');
+            
+            if (this.value === 'Other') {
+                notesRequired.classList.remove('d-none');
+                notesField.required = true;
+            } else {
+                notesRequired.classList.add('d-none');
+                notesField.required = false;
+            }
+        });
+        
         // Validation
-        document.getElementById('inboundForm').addEventListener('submit', function(e) {
+        document.getElementById('outboundForm').addEventListener('submit', function(e) {
             const items = document.querySelectorAll('#itemsContainer .card');
             if (items.length === 0) {
                 e.preventDefault();
