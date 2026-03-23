@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
@@ -52,7 +53,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -78,12 +79,26 @@
                                             <!-- Destination Warehouse -->
                                             <div class="mb-4">
                                                 <label for="warehouseId" class="form-label">Destination Warehouse <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="warehouseId" name="warehouseId" required>
-                                                    <option value="">Select warehouse...</option>
-                                                    <c:forEach var="wh" items="${warehouses}">
-                                                        <option value="${wh.id}">${wh.name} - ${wh.location}</option>
-                                                    </c:forEach>
-                                                </select>
+                                                <c:choose>
+                                                    <c:when test="${isManager}">
+                                                        <select class="form-select" id="warehouseId" disabled>
+                                                            <c:forEach var="wh" items="${warehouses}">
+                                                                <c:if test="${wh.id == lockedWarehouseId}">
+                                                                    <option value="<c:out value='${wh.id}'/>" selected><c:out value="${wh.name}"/> - <c:out value="${wh.location}"/></option>
+                                                                </c:if>
+                                                            </c:forEach>
+                                                        </select>
+                                                        <input type="hidden" name="warehouseId" value="${lockedWarehouseId}" />
+                                                    </c:when>
+                                                    <c:otherwise>
+                                                        <select class="form-select" id="warehouseId" name="warehouseId" required>
+                                                            <option value="">Select warehouse...</option>
+                                                            <c:forEach var="wh" items="${warehouses}">
+                                                                <option value="<c:out value='${wh.id}'/>"><c:out value="${wh.name}"/> - <c:out value="${wh.location}"/></option>
+                                                            </c:forEach>
+                                                        </select>
+                                                    </c:otherwise>
+                                                </c:choose>
                                             </div>
                                             
                                             <!-- Expected Delivery Date -->
@@ -184,7 +199,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />
@@ -240,7 +255,7 @@
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Target Location</label>
-                                <input type="text" class="form-control" name="locationId" placeholder="Optional" />
+                                <input type="number" class="form-control" name="locationId" placeholder="Optional" min="1" />
                             </div>
                         </div>
                     </div>
