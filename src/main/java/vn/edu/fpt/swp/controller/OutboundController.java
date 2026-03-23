@@ -635,6 +635,16 @@ public class OutboundController extends HttpServlet {
                 return;
             }
             
+            // Staff/Manager can only execute requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to execute this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             // Can only execute Approved or InProgress requests
             if (!"Approved".equals(outboundRequest.getStatus()) && !"InProgress".equals(outboundRequest.getStatus())) {
                 request.getSession().setAttribute("errorMessage", "Only approved requests can be executed.");
@@ -697,6 +707,18 @@ public class OutboundController extends HttpServlet {
         try {
             Long requestId = Long.parseLong(idStr.trim());
             
+            // Staff/Manager can only start execution for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request outboundRequest = outboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (outboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to execute this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             boolean started = outboundService.startExecution(requestId);
             
             if (started) {
@@ -739,6 +761,18 @@ public class OutboundController extends HttpServlet {
             Long productId = Long.parseLong(productIdStr.trim());
             Integer pickedQty = Integer.parseInt(pickedQtyStr.trim());
             
+            // Staff/Manager can only update items for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request outboundRequest = outboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (outboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to update this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             boolean updated = outboundService.updatePickedQuantity(requestId, productId, pickedQty);
             
             if (updated) {
@@ -775,6 +809,19 @@ public class OutboundController extends HttpServlet {
         
         try {
             Long requestId = Long.parseLong(idStr.trim());
+            
+            // Staff/Manager can only complete execution for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request outboundRequest = outboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (outboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(outboundRequest.getSourceWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to complete this request.");
+                    response.sendRedirect(request.getContextPath() + "/outbound");
+                    return;
+                }
+            }
+            
             Long userId = getCurrentUserId(request);
             
             boolean completed = outboundService.completeExecution(requestId, userId);
