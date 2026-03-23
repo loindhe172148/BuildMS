@@ -265,6 +265,18 @@ public class OutboundController extends HttpServlet {
             return;
         }
         
+        // Staff/Manager: pre-select and lock to their assigned warehouse
+        if (isWarehouseScoped(request)) {
+            Long assignedWarehouseId = getAssignedWarehouseId(request);
+            if (assignedWarehouseId == null) {
+                request.getSession().setAttribute("errorMessage", "You are not assigned to any warehouse.");
+                response.sendRedirect(request.getContextPath() + "/outbound");
+                return;
+            }
+            request.setAttribute("lockedWarehouseId", assignedWarehouseId);
+        }
+        
+        request.setAttribute("isManager", isWarehouseScoped(request));
         request.setAttribute("warehouses", warehouses);
         request.setAttribute("products", products);
         request.setAttribute("reasons", reasons);
