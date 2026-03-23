@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.dao;
 
 import vn.edu.fpt.swp.model.Product;
 import vn.edu.fpt.swp.util.DBConnection;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -383,6 +385,67 @@ public class ProductDAO {
         }
         
         return products;
+    }
+
+    public PageResult<Product> searchPaginated(String keyword, Long categoryId, Boolean isActive, PageRequest pageRequest) {
+        List<Product> products = new ArrayList<>();
+        StringBuilder fromClause = new StringBuilder(" FROM Products WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            fromClause.append(" AND (sku LIKE ? OR name LIKE ?)");
+            String searchPattern = "%" + keyword.trim() + "%";
+            params.add(searchPattern);
+            params.add(searchPattern);
+        }
+
+        if (categoryId != null && categoryId > 0) {
+            fromClause.append(" AND categoryId = ?");
+            params.add(categoryId);
+        }
+
+        if (isActive != null) {
+            fromClause.append(" AND isActive = ?");
+            params.add(isActive);
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT id, sku, name, unit, categoryId, isActive, createdAt" + fromClause
+            + " ORDER BY name OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        products.add(mapResultSetToProduct(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(products, totalItems, pageRequest);
     }
     
     /**
