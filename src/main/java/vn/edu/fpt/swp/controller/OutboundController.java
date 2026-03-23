@@ -635,6 +635,13 @@ public class OutboundController extends HttpServlet {
                 return;
             }
             
+            // Can only execute Approved or InProgress requests
+            if (!"Approved".equals(outboundRequest.getStatus()) && !"InProgress".equals(outboundRequest.getStatus())) {
+                request.getSession().setAttribute("errorMessage", "Only approved requests can be executed.");
+                response.sendRedirect(request.getContextPath() + "/outbound?action=details&id=" + requestId);
+                return;
+            }
+            
             // Staff/Manager can only execute requests for their assigned warehouse
             if (isWarehouseScoped(request)) {
                 Long assignedWarehouseId = getAssignedWarehouseId(request);
@@ -643,13 +650,6 @@ public class OutboundController extends HttpServlet {
                     response.sendRedirect(request.getContextPath() + "/outbound");
                     return;
                 }
-            }
-            
-            // Can only execute Approved or InProgress requests
-            if (!"Approved".equals(outboundRequest.getStatus()) && !"InProgress".equals(outboundRequest.getStatus())) {
-                request.getSession().setAttribute("errorMessage", "Only approved requests can be executed.");
-                response.sendRedirect(request.getContextPath() + "/outbound?action=details&id=" + requestId);
-                return;
             }
             
             // Get items
