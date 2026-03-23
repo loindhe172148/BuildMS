@@ -319,6 +319,16 @@ public class OutboundController extends HttpServlet {
             
             Long warehouseId = Long.parseLong(warehouseIdStr.trim());
             
+            // Staff/Manager can only create for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(warehouseId)) {
+                    request.getSession().setAttribute("errorMessage", "You can only create outbound requests for your assigned warehouse.");
+                    response.sendRedirect(request.getContextPath() + "/outbound?action=create");
+                    return;
+                }
+            }
+            
             // Validate reason
             if (reason == null || reason.trim().isEmpty()) {
                 request.getSession().setAttribute("errorMessage", "Please select an outbound reason.");
