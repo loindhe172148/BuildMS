@@ -230,11 +230,25 @@ public class InboundService {
             return false;
         }
         
-        // Update inventory for each item
+        // Ensure every item has a received quantity recorded before completing
         for (RequestItem item : items) {
             Integer receivedQty = item.getReceivedQuantity();
-            if (receivedQty == null || receivedQty <= 0) {
-                continue; // Skip items with no received quantity
+            if (receivedQty == null) {
+                return false; // Missing data — do not complete
+            }
+            if (receivedQty < 0) {
+                return false; // Invalid quantity
+            }
+        }
+        
+        // Update inventory for each item (skip zero but require explicit value)
+        for (RequestItem item : items) {
+            Integer receivedQty = item.getReceivedQuantity();
+            if (receivedQty == null) {
+                return false; // Defensive; should not happen
+            }
+            if (receivedQty == 0) {
+                continue; // Explicit zero received — nothing to add to inventory
             }
             
             Long locationId = item.getLocationId();

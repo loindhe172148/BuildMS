@@ -62,8 +62,8 @@
                             <h6 class="mb-0 text-danger">Error Details (Debug Mode)</h6>
                         </div>
                         <div class="card-body">
-                            <p><strong>Exception:</strong> ${exception.class.name}</p>
-                            <p><strong>Message:</strong> ${exception.message}</p>
+                            <p><strong>Exception:</strong> <c:out value="${exception.class.name}"/></p>
+                            <p><strong>Message:</strong> <c:out value="${exception.message}"/></p>
                         </div>
                     </div>
                 </div>

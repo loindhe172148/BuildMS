@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.WarehouseDAO;
 import vn.edu.fpt.swp.model.Warehouse;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.List;
 
@@ -39,6 +41,10 @@ public class WarehouseService {
      */
     public List<Warehouse> searchWarehouses(String keyword) {
         return warehouseDAO.search(keyword);
+    }
+
+    public PageResult<Warehouse> searchWarehousesPaginated(String keyword, PageRequest pageRequest) {
+        return warehouseDAO.searchPaginated(keyword, pageRequest);
     }
     
     /**
@@ -126,6 +132,16 @@ public class WarehouseService {
      */
     public int getLocationCount(Long warehouseId) {
         return warehouseDAO.countLocations(warehouseId);
+    }
+
+    /**
+     * Get location counts for ALL warehouses in one DB round-trip.
+     * Use this on the warehouse list page instead of calling getLocationCount() per warehouse.
+     *
+     * @return Map of warehouseId -> location count
+     */
+    public java.util.Map<Long, Integer> getAllLocationCounts() {
+        return warehouseDAO.getAllLocationCounts();
     }
     
     /**

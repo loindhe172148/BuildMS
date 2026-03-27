@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
 
@@ -44,7 +45,7 @@
                                 <li class="breadcrumb-item">
                                     <a href="${contextPath}/movement">Internal Movements</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">Execute #${movementRequest.id}</li>
+                                <li class="breadcrumb-item active" aria-current="page">Execute #<c:out value="${movementRequest.id}"/></li>
                             </ol>
                         </nav>
                         
@@ -52,7 +53,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -61,7 +62,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -70,7 +71,7 @@
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-6">
                             <h4 class="mb-0">
-                                <i class="bx bx-play-circle me-2"></i>Execute Movement #${movementRequest.id}
+                                <i class="bx bx-play-circle me-2"></i>Execute Movement #<c:out value="${movementRequest.id}"/>
                             </h4>
                             <a href="${contextPath}/movement?action=details&id=${movementRequest.id}" class="btn btn-outline-secondary">
                                 <i class="bx bx-arrow-back me-1"></i>Back to Details
@@ -87,9 +88,9 @@
                                                 <i class="bx bx-transfer bx-lg"></i>
                                             </div>
                                             <div>
-                                                <h6 class="mb-0">Movement #${movementRequest.id}</h6>
+                                                <h6 class="mb-0">Movement #<c:out value="${movementRequest.id}"/></h6>
                                                 <small class="text-muted">
-                                                    <i class="bx bx-building-house me-1"></i>${warehouse.name}
+                                                    <i class="bx bx-building-house me-1"></i><c:out value="${warehouse.name}"/>
                                                 </small>
                                             </div>
                                         </div>
@@ -97,20 +98,20 @@
                                     <div class="col-md-3">
                                         <p class="text-muted mb-0">Status</p>
                                         <c:choose>
-                                            <c:when test="${movementRequest.status == 'Created'}">
-                                                <span class="badge bg-warning fs-6">Created</span>
+                                            <c:when test="${movementRequest.status == 'Approved'}">
+                                                <span class="badge bg-success fs-6">Approved</span>
                                             </c:when>
                                             <c:when test="${movementRequest.status == 'InProgress'}">
                                                 <span class="badge bg-info fs-6">In Progress</span>
                                             </c:when>
                                             <c:otherwise>
-                                                <span class="badge bg-secondary fs-6">${movementRequest.status}</span>
+                                                <span class="badge bg-secondary fs-6"><c:out value="${movementRequest.status}"/></span>
                                             </c:otherwise>
                                         </c:choose>
                                     </div>
                                     <div class="col-md-5 text-md-end">
                                         <c:choose>
-                                            <c:when test="${movementRequest.status == 'Created'}">
+                                            <c:when test="${movementRequest.status == 'Approved'}">
                                                 <form action="${contextPath}/movement" method="post" class="d-inline">
                                                     <input type="hidden" name="action" value="start" />
                                                     <input type="hidden" name="id" value="${movementRequest.id}" />
@@ -154,7 +155,7 @@
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Items to Move</h5>
-                                <span class="badge bg-primary">${itemsWithDetails.size()} items</span>
+                                <span class="badge bg-primary">${fn:length(itemsWithDetails)} items</span>
                             </div>
                             <div class="table-responsive">
                                 <table class="table table-hover">
@@ -180,15 +181,15 @@
                                             <tr>
                                                 <td>${status.count}</td>
                                                 <td>
-                                                    <strong>${product.sku}</strong>
-                                                    <br><small class="text-muted">${product.name}</small>
+                                                    <strong><c:out value="${product.sku}"/></strong>
+                                                    <br><small class="text-muted"><c:out value="${product.name}"/></small>
                                                 </td>
                                                 <td>
                                                     <div class="d-flex align-items-center">
                                                         <span class="badge bg-label-danger me-2">FROM</span>
                                                         <div>
-                                                            <strong>${srcLoc.code}</strong>
-                                                            <br><small class="text-muted">${srcLoc.type}</small>
+                                                            <strong><c:out value="${srcLoc.code}"/></strong>
+                                                            <br><small class="text-muted"><c:out value="${srcLoc.type}"/></small>
                                                         </div>
                                                     </div>
                                                 </td>
@@ -196,29 +197,29 @@
                                                     <div class="d-flex align-items-center">
                                                         <span class="badge bg-label-success me-2">TO</span>
                                                         <div>
-                                                            <strong>${destLoc.code}</strong>
-                                                            <br><small class="text-muted">${destLoc.type}</small>
+                                                            <strong><c:out value="${destLoc.code}"/></strong>
+                                                            <br><small class="text-muted"><c:out value="${destLoc.type}"/></small>
                                                         </div>
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <span class="fs-5 fw-bold text-primary">${item.quantity}</span>
-                                                    <span class="text-muted">${product.unit}</span>
+                                                    <span class="fs-5 fw-bold text-primary"><c:out value="${item.quantity}"/></span>
+                                                    <span class="text-muted"><c:out value="${product.unit}"/></span>
                                                 </td>
                                                 <td>
                                                     <c:choose>
                                                         <c:when test="${srcQty >= item.quantity}">
-                                                            <span class="text-success">${srcQty}</span>
+                                                            <span class="text-success"><c:out value="${srcQty}"/></span>
                                                             <i class="bx bx-check-circle text-success ms-1"></i>
                                                         </c:when>
                                                         <c:otherwise>
-                                                            <span class="text-danger fw-bold">${srcQty}</span>
+                                                            <span class="text-danger fw-bold"><c:out value="${srcQty}"/></span>
                                                             <i class="bx bx-error-circle text-danger ms-1" 
                                                                title="Insufficient quantity"></i>
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </td>
-                                                <td>${destQty}</td>
+                                                <td><c:out value="${destQty}"/></td>
                                             </tr>
                                         </c:forEach>
                                     </tbody>
@@ -252,20 +253,20 @@
                                                 <c:set var="srcQty" value="${itemData.sourceQuantity}" />
                                                 <c:set var="destQty" value="${itemData.destinationQuantity}" />
                                                 <tr>
-                                                    <td><strong>${product.sku}</strong></td>
-                                                    <td>${srcLoc.code}</td>
+                                                    <td><strong><c:out value="${product.sku}"/></strong></td>
+                                                    <td><c:out value="${srcLoc.code}"/></td>
                                                     <td>
-                                                        <span class="text-muted">${srcQty}</span>
+                                                        <span class="text-muted"><c:out value="${srcQty}"/></span>
                                                         <i class="bx bx-right-arrow-alt mx-2"></i>
-                                                        <span class="fw-bold text-danger">${srcQty - item.quantity}</span>
-                                                        <small class="text-danger ms-1">(-${item.quantity})</small>
+                                                        <span class="fw-bold text-danger"><c:out value="${srcQty - item.quantity}"/></span>
+                                                        <small class="text-danger ms-1">(-<c:out value="${item.quantity}"/>)</small>
                                                     </td>
-                                                    <td>${destLoc.code}</td>
+                                                    <td><c:out value="${destLoc.code}"/></td>
                                                     <td>
-                                                        <span class="text-muted">${destQty}</span>
+                                                        <span class="text-muted"><c:out value="${destQty}"/></span>
                                                         <i class="bx bx-right-arrow-alt mx-2"></i>
-                                                        <span class="fw-bold text-success">${destQty + item.quantity}</span>
-                                                        <small class="text-success ms-1">(+${item.quantity})</small>
+                                                        <span class="fw-bold text-success"><c:out value="${destQty + item.quantity}"/></span>
+                                                        <small class="text-success ms-1">(+<c:out value="${item.quantity}"/>)</small>
                                                     </td>
                                                 </tr>
                                             </c:forEach>
@@ -275,7 +276,7 @@
                             </div>
                         </c:if>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />

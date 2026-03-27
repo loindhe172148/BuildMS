@@ -46,7 +46,7 @@
                         <c:if test="${not empty successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${successMessage}
+                                <c:out value="${successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         </c:if>
@@ -54,7 +54,7 @@
                         <c:if test="${not empty errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${errorMessage}
+                                <c:out value="${errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         </c:if>
@@ -62,7 +62,7 @@
                         <c:if test="${not empty warningMessage}">
                             <div class="alert alert-warning alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error me-2"></i>
-                                ${warningMessage}
+                                <c:out value="${warningMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         </c:if>
@@ -70,7 +70,7 @@
                         <c:if test="${not empty infoMessage}">
                             <div class="alert alert-info alert-dismissible fade show" role="alert">
                                 <i class="bx bx-info-circle me-2"></i>
-                                ${infoMessage}
+                                <c:out value="${infoMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         </c:if>

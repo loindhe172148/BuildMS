@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.UserDAO;
 import vn.edu.fpt.swp.model.User;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 import vn.edu.fpt.swp.util.PasswordUtil;
 
 import java.util.Arrays;
@@ -179,6 +181,11 @@ public class UserService {
     public List<User> searchUsers(String keyword, String role, String status, Long warehouseId) {
         return userDAO.search(keyword, role, status, warehouseId);
     }
+
+    public PageResult<User> searchUsersPaginated(String keyword, String role, String status, Long warehouseId,
+                                                 PageRequest pageRequest) {
+        return userDAO.searchPaginated(keyword, role, status, warehouseId, pageRequest);
+    }
     
     /**
      * Validate user fields
@@ -203,6 +210,11 @@ public class UserService {
         }
         if (!isValidRole(user.getRole())) {
             throw new IllegalArgumentException("Invalid role. Must be Admin, Manager, Staff, or Sales");
+        }
+        
+        // Manager and Staff must have warehouse assignment
+        if (("Manager".equals(user.getRole()) || "Staff".equals(user.getRole())) && user.getWarehouseId() == null) {
+            throw new IllegalArgumentException("Warehouse assignment is required for " + user.getRole() + " role");
         }
         
         // Trim values

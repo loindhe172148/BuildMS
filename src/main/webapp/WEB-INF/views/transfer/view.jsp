@@ -3,7 +3,6 @@
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
-<c:set var="transfer" value="${request}" />
 
 <!DOCTYPE html>
 <html lang="en" class="layout-menu-fixed layout-compact" 
@@ -45,7 +44,7 @@
                                 <li class="breadcrumb-item">
                                     <a href="${contextPath}/transfer">Transfers</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">${transfer.requestNumber}</li>
+                                <li class="breadcrumb-item active" aria-current="page">#<c:out value="${transfer.id}"/></li>
                             </ol>
                         </nav>
                         
@@ -56,7 +55,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <div>
                                 <h4 class="mb-1">
-                                    <i class="bx bx-transfer me-2"></i>Transfer: ${transfer.requestNumber}
+                                    <i class="bx bx-transfer me-2"></i>Transfer #<c:out value="${transfer.id}"/>
                                 </h4>
                                 <span class="badge 
                                     <c:choose>
@@ -68,7 +67,7 @@
                                         <c:otherwise>bg-secondary</c:otherwise>
                                     </c:choose>
                                     fs-6">
-                                    ${transfer.status}
+                                    <c:out value="${transfer.status}"/>
                                 </span>
                             </div>
                             <div class="d-flex gap-2">
@@ -76,8 +75,8 @@
                                     <i class="bx bx-arrow-back me-1"></i> Back to List
                                 </a>
                                 
-                                <!-- Approve/Reject (Manager only, Status = Created) -->
-                                <c:if test="${transfer.status == 'Created' && (currentUser.role == 'Admin' || currentUser.role == 'Manager')}">
+                                <!-- Approve/Reject: only dest WH Manager or Admin, Status = Created -->
+                                <c:if test="${transfer.status == 'Created' && (isAdmin || (isAtDestWH && currentUser.role == 'Manager'))}">
                                     <form method="post" action="${contextPath}/transfer" class="d-inline">
                                         <input type="hidden" name="action" value="approve">
                                         <input type="hidden" name="id" value="${transfer.id}">
@@ -90,27 +89,29 @@
                                     </button>
                                 </c:if>
                                 
-                                <!-- Start Outbound (Status = Approved) -->
-                                <c:if test="${transfer.status == 'Approved' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff')}">
+                                <!-- Execute Outbound: only source WH Staff/Manager or Admin, Status = Approved -->
+                                <c:if test="${transfer.status == 'Approved' && (isAdmin || isAtSourceWH)}">
                                     <a href="${contextPath}/transfer?action=execute-outbound&id=${transfer.id}" class="btn btn-primary">
                                         <i class="bx bx-play me-1"></i> Execute Outbound
                                     </a>
                                 </c:if>
                                 
-                                <!-- Complete Outbound / Start Inbound (Status = InProgress or InTransit) -->
-                                <c:if test="${transfer.status == 'InProgress' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff')}">
+                                <!-- Continue Outbound: only source WH Staff/Manager or Admin, Status = InProgress -->
+                                <c:if test="${transfer.status == 'InProgress' && (isAdmin || isAtSourceWH)}">
                                     <a href="${contextPath}/transfer?action=execute-outbound&id=${transfer.id}" class="btn btn-info">
                                         <i class="bx bx-check-circle me-1"></i> Complete Outbound
                                     </a>
                                 </c:if>
                                 
-                                <c:if test="${transfer.status == 'InTransit' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff')}">
+                                <!-- Execute Inbound: only dest WH Staff/Manager or Admin, Status = InTransit -->
+                                <c:if test="${transfer.status == 'InTransit' && (isAdmin || isAtDestWH)}">
                                     <a href="${contextPath}/transfer?action=execute-inbound&id=${transfer.id}" class="btn btn-primary">
                                         <i class="bx bx-download me-1"></i> Execute Inbound
                                     </a>
                                 </c:if>
                                 
-                                <c:if test="${transfer.status == 'Receiving' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff')}">
+                                <!-- Complete Inbound: only dest WH Staff/Manager or Admin, Status = Receiving -->
+                                <c:if test="${transfer.status == 'Receiving' && (isAdmin || isAtDestWH)}">
                                     <a href="${contextPath}/transfer?action=execute-inbound&id=${transfer.id}" class="btn btn-success">
                                         <i class="bx bx-check-double me-1"></i> Complete Inbound
                                     </a>
@@ -129,12 +130,12 @@
                                     <div class="card-body">
                                         <table class="table table-borderless mb-0">
                                             <tr>
-                                                <th class="ps-0" width="40%">Request Number:</th>
-                                                <td><strong>${transfer.requestNumber}</strong></td>
+                                                <th class="ps-0" width="40%">Request ID:</th>
+                                                <td><strong>#<c:out value="${transfer.id}"/></strong></td>
                                             </tr>
                                             <tr>
                                                 <th class="ps-0">Type:</th>
-                                                <td><span class="badge bg-label-info">${transfer.type}</span></td>
+                                                <td><span class="badge bg-label-info"><c:out value="${transfer.type}"/></span></td>
                                             </tr>
                                             <tr>
                                                 <th class="ps-0">Status:</th>
@@ -149,24 +150,26 @@
                                                             <c:otherwise>bg-secondary</c:otherwise>
                                                         </c:choose>
                                                     ">
-                                                        ${transfer.status}
+                                                        <c:out value="${transfer.status}"/>
                                                     </span>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <th class="ps-0">Created By:</th>
-                                                <td>${createdByUser.fullName}</td>
+                                                <td><c:out value="${not empty creator ? creator.fullName : 'Unknown'}"/></td>
                                             </tr>
                                             <tr>
                                                 <th class="ps-0">Created At:</th>
                                                 <td>
-                                                    <fmt:formatDate value="${transfer.createdAt}" pattern="MMM dd, yyyy HH:mm"/>
+                                                    <c:if test="${not empty transfer.createdAt}">
+                                                        <c:out value="${transfer.createdAt.toLocalDate()}"/> <c:out value="${transfer.createdAt.toLocalTime().toString().substring(0, 5)}"/>
+                                                    </c:if>
                                                 </td>
                                             </tr>
                                             <c:if test="${not empty transfer.notes}">
                                                 <tr>
                                                     <th class="ps-0">Notes:</th>
-                                                    <td>${transfer.notes}</td>
+                                                    <td><c:out value="${transfer.notes}"/></td>
                                                 </tr>
                                             </c:if>
                                         </table>
@@ -186,9 +189,9 @@
                                                 <div class="border rounded p-3 bg-light">
                                                     <i class="bx bx-export fs-1 text-danger mb-2"></i>
                                                     <h6 class="text-muted mb-1">Source</h6>
-                                                    <strong>${sourceWarehouse.name}</strong>
+                                                    <strong><c:out value="${not empty sourceWarehouse ? sourceWarehouse.name : 'N/A'}"/></strong>
                                                     <br>
-                                                    <small class="text-muted">${sourceWarehouse.code}</small>
+                                                    <small class="text-muted"><c:out value="${not empty sourceWarehouse ? sourceWarehouse.location : ''}"/></small>
                                                 </div>
                                             </div>
                                             <div class="col-2 d-flex align-items-center justify-content-center">
@@ -198,12 +201,108 @@
                                                 <div class="border rounded p-3 bg-light">
                                                     <i class="bx bx-import fs-1 text-success mb-2"></i>
                                                     <h6 class="text-muted mb-1">Destination</h6>
-                                                    <strong>${destinationWarehouse.name}</strong>
+                                                    <strong><c:out value="${not empty destinationWarehouse ? destinationWarehouse.name : 'N/A'}"/></strong>
                                                     <br>
-                                                    <small class="text-muted">${destinationWarehouse.code}</small>
+                                                    <small class="text-muted"><c:out value="${not empty destinationWarehouse ? destinationWarehouse.location : ''}"/></small>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Workflow Progress -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bx bx-git-branch me-2"></i>Transfer Workflow</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center text-center">
+                                    <%-- Step 1: Created --%>
+                                    <div class="flex-fill">
+                                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center 
+                                            ${transfer.status != 'Rejected' ? 'bg-success' : 'bg-success'} text-white" 
+                                            style="width:40px;height:40px;">
+                                            <i class="bx bx-check"></i>
+                                        </div>
+                                        <div class="mt-1"><small><strong>Created</strong></small></div>
+                                        <div><small class="text-muted">Source WH</small></div>
+                                    </div>
+                                    <div class="flex-fill pt-0"><hr></div>
+                                    <%-- Step 2: Approved by Dest WH --%>
+                                    <div class="flex-fill">
+                                        <c:choose>
+                                            <c:when test="${transfer.status == 'Rejected'}">
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-danger text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-x"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Rejected</strong></small></div>
+                                            </c:when>
+                                            <c:when test="${transfer.status == 'Created'}">
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-warning text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-time"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Pending Approval</strong></small></div>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-success text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-check"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Approved</strong></small></div>
+                                            </c:otherwise>
+                                        </c:choose>
+                                        <div><small class="text-muted">Dest WH Manager</small></div>
+                                    </div>
+                                    <div class="flex-fill pt-0"><hr></div>
+                                    <%-- Step 3: Outbound by Source WH --%>
+                                    <div class="flex-fill">
+                                        <c:choose>
+                                            <c:when test="${transfer.status == 'InTransit' || transfer.status == 'Receiving' || transfer.status == 'Completed'}">
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-success text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-check"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Outbound Done</strong></small></div>
+                                            </c:when>
+                                            <c:when test="${transfer.status == 'InProgress'}">
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-info text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-loader-alt bx-spin"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Picking...</strong></small></div>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-secondary text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-minus"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Outbound</strong></small></div>
+                                            </c:otherwise>
+                                        </c:choose>
+                                        <div><small class="text-muted">Source WH</small></div>
+                                    </div>
+                                    <div class="flex-fill pt-0"><hr></div>
+                                    <%-- Step 4: Inbound & Complete by Dest WH --%>
+                                    <div class="flex-fill">
+                                        <c:choose>
+                                            <c:when test="${transfer.status == 'Completed'}">
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-success text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-check-double"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Completed</strong></small></div>
+                                            </c:when>
+                                            <c:when test="${transfer.status == 'Receiving'}">
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-info text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-loader-alt bx-spin"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Receiving...</strong></small></div>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <div class="rounded-circle d-inline-flex align-items-center justify-content-center bg-secondary text-white" style="width:40px;height:40px;">
+                                                    <i class="bx bx-minus"></i>
+                                                </div>
+                                                <div class="mt-1"><small><strong>Inbound</strong></small></div>
+                                            </c:otherwise>
+                                        </c:choose>
+                                        <div><small class="text-muted">Dest WH</small></div>
                                     </div>
                                 </div>
                             </div>
@@ -231,42 +330,52 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <c:forEach var="item" items="${requestItems}" varStatus="status">
+                                        <c:forEach var="data" items="${items}" varStatus="status">
                                             <tr>
                                                 <td>${status.index + 1}</td>
                                                 <td>
                                                     <c:choose>
-                                                        <c:when test="${not empty item.product}">
-                                                            ${item.product.name}
+                                                        <c:when test="${not empty data.product}">
+                                                            <c:out value="${data.product.name}"/>
                                                         </c:when>
                                                         <c:otherwise>
-                                                            Product #${item.productId}
+                                                            Product #<c:out value="${data.item.productId}"/>
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </td>
                                                 <td>
-                                                    <c:if test="${not empty item.product}">
-                                                        <code>${item.product.sku}</code>
+                                                    <c:if test="${not empty data.product}">
+                                                        <code><c:out value="${data.product.sku}"/></code>
                                                     </c:if>
                                                 </td>
                                                 <td class="text-center">
-                                                    <span class="badge bg-label-primary">${item.quantity}</span>
+                                                    <span class="badge bg-label-primary"><c:out value="${data.item.quantity}"/></span>
+                                                    <c:if test="${not empty data.product}"><span class="text-muted small"><c:out value="${data.product.unit}"/></span></c:if>
                                                 </td>
                                                 <c:if test="${transfer.status == 'InProgress' || transfer.status == 'InTransit' || transfer.status == 'Receiving' || transfer.status == 'Completed'}">
                                                     <td class="text-center">
-                                                        <span class="badge bg-label-info">${item.pickedQuantity != null ? item.pickedQuantity : 0}</span>
+                                                        <span class="badge bg-label-info"><c:out value="${data.item.pickedQuantity != null ? data.item.pickedQuantity : 0}"/></span>
+                                                        <c:if test="${not empty data.product}"><span class="text-muted small"><c:out value="${data.product.unit}"/></span></c:if>
                                                     </td>
                                                 </c:if>
                                                 <c:if test="${transfer.status == 'Receiving' || transfer.status == 'Completed'}">
                                                     <td class="text-center">
-                                                        <span class="badge bg-label-success">${item.receivedQuantity != null ? item.receivedQuantity : 0}</span>
+                                                        <span class="badge bg-label-success"><c:out value="${data.item.receivedQuantity != null ? data.item.receivedQuantity : 0}"/></span>
+                                                        <c:if test="${not empty data.product}"><span class="text-muted small"><c:out value="${data.product.unit}"/></span></c:if>
                                                     </td>
                                                 </c:if>
                                             </tr>
                                         </c:forEach>
-                                        <c:if test="${empty requestItems}">
+                                        <c:if test="${empty items}">
                                             <tr>
-                                                <td colspan="6" class="text-center text-muted py-4">
+                                                <c:set var="colCount" value="4" />
+                                                <c:if test="${transfer.status == 'InProgress' || transfer.status == 'InTransit' || transfer.status == 'Receiving' || transfer.status == 'Completed'}">
+                                                    <c:set var="colCount" value="${colCount + 1}" />
+                                                </c:if>
+                                                <c:if test="${transfer.status == 'Receiving' || transfer.status == 'Completed'}">
+                                                    <c:set var="colCount" value="${colCount + 1}" />
+                                                </c:if>
+                                                <td colspan="${colCount}" class="text-center text-muted py-4">
                                                     No items in this transfer.
                                                 </td>
                                             </tr>
@@ -276,36 +385,19 @@
                             </div>
                         </div>
                         
-                        <!-- Status Timeline -->
-                        <c:if test="${not empty statusHistory}">
+                        <!-- Rejection Info -->
+                        <c:if test="${transfer.status == 'Rejected' && not empty transfer.rejectionReason}">
                             <div class="card mt-4">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="bx bx-history me-2"></i>Status History</h5>
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0"><i class="bx bx-x-circle me-2"></i>Rejection Details</h5>
                                 </div>
                                 <div class="card-body">
-                                    <ul class="timeline">
-                                        <c:forEach var="history" items="${statusHistory}">
-                                            <li class="timeline-item">
-                                                <span class="timeline-point"></span>
-                                                <div class="timeline-event">
-                                                    <div class="timeline-header">
-                                                        <h6 class="mb-0">${history.status}</h6>
-                                                        <small class="text-muted">
-                                                            <fmt:formatDate value="${history.changedAt}" pattern="MMM dd, yyyy HH:mm"/>
-                                                        </small>
-                                                    </div>
-                                                    <c:if test="${not empty history.notes}">
-                                                        <p class="mb-0">${history.notes}</p>
-                                                    </c:if>
-                                                </div>
-                                            </li>
-                                        </c:forEach>
-                                    </ul>
+                                    <p class="mb-0"><strong>Reason:</strong> <c:out value="${transfer.rejectionReason}"/></p>
                                 </div>
                             </div>
                         </c:if>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->
@@ -323,7 +415,8 @@
     </div>
     <!-- / Layout wrapper -->
     
-    <!-- Reject Modal -->
+    <!-- Reject Modal — only rendered when user can approve/reject -->
+    <c:if test="${transfer.status == 'Created' && (isAdmin || (isAtDestWH && currentUser.role == 'Manager'))}">
     <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -335,6 +428,10 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
+                        <p class="text-muted mb-3">
+                            As the destination warehouse manager, you are rejecting this incoming transfer 
+                            from <strong><c:out value="${not empty sourceWarehouse ? sourceWarehouse.name : 'source'}"/></strong>.
+                        </p>
                         <div class="mb-3">
                             <label class="form-label">Rejection Reason <span class="text-danger">*</span></label>
                             <textarea name="reason" class="form-control" rows="3" required
@@ -351,6 +448,7 @@
             </div>
         </div>
     </div>
+    </c:if>
     
     <!-- Core JS -->
     <jsp:include page="/WEB-INF/common/scripts.jsp" />

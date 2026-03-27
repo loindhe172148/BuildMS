@@ -9,9 +9,14 @@ import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.Customer;
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.service.CustomerService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for Customer management
@@ -92,6 +97,13 @@ public class CustomerController extends HttpServlet {
             case "edit":
                 processEdit(request, response);
                 break;
+            case "toggle":
+                if (!hasToggleAccess(request)) {
+                    response.sendRedirect(request.getContextPath() + "/customer?action=list");
+                    return;
+                }
+                toggleStatus(request, response);
+                break;
             default:
                 response.sendRedirect(request.getContextPath() + "/customer?action=list");
         }
@@ -105,25 +117,36 @@ public class CustomerController extends HttpServlet {
         
         String keyword = request.getParameter("keyword");
         String status = request.getParameter("status");
-        
-        List<Customer> customers;
-        
-        if ((keyword != null && !keyword.trim().isEmpty()) || 
-            (status != null && !status.trim().isEmpty())) {
-            customers = customerService.searchCustomers(keyword, status);
-        } else {
-            customers = customerService.getAllCustomers();
+
+        String selectedKeyword = keyword != null ? keyword.trim() : null;
+        String selectedStatus = status != null ? status.trim() : null;
+        if (selectedKeyword != null && selectedKeyword.isEmpty()) {
+            selectedKeyword = null;
         }
-        
-        // Get order count for each customer
-        for (Customer customer : customers) {
-            int orderCount = customerService.getOrderCount(customer.getId());
-            request.setAttribute("orderCount_" + customer.getId(), orderCount);
+        if (selectedStatus != null && selectedStatus.isEmpty()) {
+            selectedStatus = null;
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Customer> customerPage = customerService.searchCustomersPaginated(selectedKeyword, selectedStatus, pageRequest);
         
-        request.setAttribute("customers", customers);
-        request.setAttribute("keyword", keyword);
-        request.setAttribute("status", status);
+        // Fetch all order counts in ONE query instead of N per-customer queries
+        java.util.Map<Long, Integer> orderCountMap = customerService.getAllOrderCounts();
+        request.setAttribute("orderCountMap", orderCountMap);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("status", selectedStatus);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("customers", customerPage.getItems());
+        request.setAttribute("keyword", selectedKeyword);
+        request.setAttribute("status", selectedStatus);
+        request.setAttribute("currentPage", customerPage.getCurrentPage());
+        request.setAttribute("totalPages", customerPage.getTotalPages());
+        request.setAttribute("pageSize", customerPage.getPageSize());
+        request.setAttribute("totalItems", customerPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/customer", paginationParams));
         
         request.getRequestDispatcher("/WEB-INF/views/customer/list.jsp")
                .forward(request, response);
@@ -343,12 +366,12 @@ public class CustomerController extends HttpServlet {
         if (user == null) return false;
         
         String role = user.getRole();
-        return "Admin".equals(role) || "Manager".equals(role) || "Sales".equals(role);
+        return "Manager".equals(role) || "Sales".equals(role);
     }
     
     /**
      * Check if user has access to add/edit customers
-     * Allowed: Admin, Manager, Sales
+     * Allowed: Manager, Sales
      */
     private boolean hasManageAccess(HttpServletRequest request) {
         return hasAccess(request); // Same as view access for customers
@@ -356,13 +379,13 @@ public class CustomerController extends HttpServlet {
     
     /**
      * Check if user has access to toggle customer status
-     * Allowed: Admin only
+     * Allowed: Manager only
      */
     private boolean hasToggleAccess(HttpServletRequest request) {
         User user = getCurrentUser(request);
         if (user == null) return false;
         
-        return "Admin".equals(user.getRole());
+        return "Manager".equals(user.getRole());
     }
     
     /**

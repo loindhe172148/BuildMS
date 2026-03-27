@@ -8,10 +8,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.*;
 import vn.edu.fpt.swp.service.SalesOrderService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -95,34 +102,50 @@ public class SalesOrderController extends HttpServlet {
     /**
      * List all sales orders with optional status filter
      */
-private void listOrders(HttpServletRequest request, HttpServletResponse response)
+    private void listOrders(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String status = request.getParameter("status");
-        
-        List<SalesOrder> orders;
-        if (status != null && !status.isEmpty()) {
-            orders = salesOrderService.getSalesOrdersByStatus(status);
-        } else {
-            orders = salesOrderService.getAllSalesOrders();
+
+        String selectedStatus = status != null ? status.trim() : null;
+        if (selectedStatus != null && selectedStatus.isEmpty()) {
+            selectedStatus = null;
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<SalesOrder> orderPage = salesOrderService.getSalesOrdersPaginated(selectedStatus, pageRequest);
+        List<SalesOrder> orders = orderPage.getItems();
         
+        // Build lookup maps once — avoids N+1 DB calls per order
+        java.util.Map<Long, Customer> customerMap = new java.util.HashMap<>();
+        for (Customer c : salesOrderService.getAllCustomers()) {
+            customerMap.put(c.getId(), c);
+        }
+        java.util.Map<Long, User> userMap = new java.util.HashMap<>();
+        for (User u : salesOrderService.getAllUsers()) {
+            userMap.put(u.getId(), u);
+        }
+
         // Enrich with customer info
         List<Map<String, Object>> ordersWithDetails = new ArrayList<>();
         for (SalesOrder order : orders) {
             Map<String, Object> orderData = new HashMap<>();
             orderData.put("order", order);
-            
-            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
-            orderData.put("customer", customer);
-            
-            User creator = salesOrderService.getUserById(order.getCreatedBy());
-            orderData.put("creator", creator);
-            
+            orderData.put("customer", customerMap.get(order.getCustomerId()));
+            orderData.put("creator", userMap.get(order.getCreatedBy()));
             ordersWithDetails.add(orderData);
         }
         
         request.setAttribute("orders", ordersWithDetails);
-        request.setAttribute("selectedStatus", status);
+        request.setAttribute("selectedStatus", selectedStatus);
+        request.setAttribute("currentPage", orderPage.getCurrentPage());
+        request.setAttribute("totalPages", orderPage.getTotalPages());
+        request.setAttribute("pageSize", orderPage.getPageSize());
+        request.setAttribute("totalItems", orderPage.getTotalItems());
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("status", selectedStatus);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/sales-order", paginationParams));
         
         request.getRequestDispatcher("/WEB-INF/views/sales-order/list.jsp")
                .forward(request, response);
@@ -167,7 +190,7 @@ private void listOrders(HttpServletRequest request, HttpServletResponse response
             
             if (productIds == null || productIds.length == 0) {
                 request.setAttribute("errorMessage", "At least one item is required");
-showCreateForm(request, response);
+                showCreateForm(request, response);
                 return;
             }
             
@@ -193,12 +216,37 @@ showCreateForm(request, response);
             order.setCustomerId(customerId);
             order.setCreatedBy(currentUser.getId());
             
+            // Parse optional fields: orderDate, requiredDeliveryDate, notes
+            String orderDateStr = request.getParameter("orderDate");
+            if (orderDateStr != null && !orderDateStr.trim().isEmpty()) {
+                try {
+                    order.setOrderDate(LocalDateTime.parse(orderDateStr + "T00:00:00"));
+                } catch (DateTimeParseException ex) {
+                    // Ignore parse error, leave null (defaults to now in DB)
+                }
+            }
+            
+            String deliveryDateStr = request.getParameter("requiredDeliveryDate");
+            if (deliveryDateStr != null && !deliveryDateStr.trim().isEmpty()) {
+                try {
+                    order.setRequiredDeliveryDate(LocalDateTime.parse(deliveryDateStr + "T00:00:00"));
+                } catch (DateTimeParseException ex) {
+                    // Ignore parse error, leave null
+                }
+            }
+            
+            String notes = request.getParameter("notes");
+            if (notes != null && !notes.trim().isEmpty()) {
+                order.setNotes(notes.trim());
+            }
+            
             SalesOrder createdOrder = salesOrderService.createSalesOrder(order, items);
             
             if (createdOrder != null) {
+                request.getSession().setAttribute("successMessage", 
+                    "Sales Order " + createdOrder.getOrderNo() + " created successfully");
                 response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?action=view&id=" + createdOrder.getId() + 
-                    "&success=Sales Order " + createdOrder.getOrderNo() + " created successfully");
+                    "/sales-order?action=view&id=" + createdOrder.getId());
             } else {
                 request.setAttribute("errorMessage", "Failed to create sales order. Please check your inputs.");
                 showCreateForm(request, response);
@@ -235,12 +283,16 @@ showCreateForm(request, response);
             request.setAttribute("customer", customer);
             request.setAttribute("creator", creator);
             request.setAttribute("items", items);
-request.setAttribute("relatedRequests", relatedRequests);
+            request.setAttribute("relatedRequests", relatedRequests);
             
-            // Check success message
-            String success = request.getParameter("success");
-            if (success != null && !success.isEmpty()) {
-                request.setAttribute("successMessage", success);
+            // Consume flash message from session
+            HttpSession viewSession = request.getSession(false);
+            if (viewSession != null) {
+                String flashMsg = (String) viewSession.getAttribute("successMessage");
+                if (flashMsg != null) {
+                    request.setAttribute("successMessage", flashMsg);
+                    viewSession.removeAttribute("successMessage");
+                }
             }
             
             request.getRequestDispatcher("/WEB-INF/views/sales-order/view.jsp")
@@ -266,9 +318,9 @@ request.setAttribute("relatedRequests", relatedRequests);
             boolean success = salesOrderService.confirmOrder(orderId, currentUser.getId());
             
             if (success) {
+                request.getSession().setAttribute("successMessage", "Sales order confirmed successfully");
                 response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?action=view&id=" + orderId + 
-                    "&success=Sales order confirmed successfully");
+                    "/sales-order?action=view&id=" + orderId);
             } else {
                 request.setAttribute("errorMessage", "Failed to confirm order. Order must be in Draft status.");
                 viewOrder(request, response);
@@ -288,9 +340,9 @@ request.setAttribute("relatedRequests", relatedRequests);
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
-        // Only Manager/Admin can generate outbound
-        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Managers can generate outbound requests");
+        // Only Admin/Sales can generate outbound
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can generate outbound requests");
             listOrders(request, response);
             return;
         }
@@ -306,7 +358,7 @@ request.setAttribute("relatedRequests", relatedRequests);
             }
             
             Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
-List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
+            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
             List<Warehouse> warehouses = salesOrderService.getAllWarehouses();
             
             request.setAttribute("order", order);
@@ -341,9 +393,9 @@ List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(ord
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
-        // Only Manager/Admin can generate outbound
-        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Managers can generate outbound requests");
+        // Only Admin/Sales can generate outbound
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can generate outbound requests");
             listOrders(request, response);
             return;
         }
@@ -368,13 +420,14 @@ List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(ord
             }
             
             Request outboundRequest = salesOrderService.generateOutboundRequest(
-orderId, warehouseId, currentUser.getId(), 
+                orderId, warehouseId, currentUser.getId(), 
                 quantities.isEmpty() ? null : quantities);
             
             if (outboundRequest != null) {
+                request.getSession().setAttribute("successMessage", 
+                    "Outbound request " + outboundRequest.getId() + " generated successfully");
                 response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?action=view&id=" + orderId + 
-                    "&success=Outbound request " + outboundRequest.getId() + " generated successfully");
+                    "/sales-order?action=view&id=" + orderId);
             } else {
                 request.setAttribute("errorMessage", "Failed to generate outbound request");
                 showGenerateOutboundForm(request, response);
@@ -439,7 +492,7 @@ orderId, warehouseId, currentUser.getId(),
             boolean success = salesOrderService.cancelOrder(orderId, currentUser.getId(), reason);
             
             if (success) {
-response.sendRedirect(request.getContextPath() + 
+                response.sendRedirect(request.getContextPath() + 
                     "/sales-order?success=Sales order cancelled successfully");
             } else {
                 request.setAttribute("errorMessage", "Failed to cancel order");

@@ -62,10 +62,15 @@
     sidebar.jsp:
     - activeMenu: Main menu item to highlight
       Values: dashboard, products, categories, inventory, warehouses, locations,
-              inbound, outbound, movement, customers, sales-orders, users, suppliers,
+              inbound, outbound, movement, transfers, customers, sales-orders, users,
               profile, change-password
-    - activeSubMenu: Sub-menu item to highlight
-      Values: product-list, product-add, category-list, category-add, etc.
+      NOTE: Catalog items (products, categories, warehouses, locations, users, customers)
+            are direct links - only activeMenu is needed, no activeSubMenu.
+    - activeSubMenu: Sub-menu item to highlight (Operations & Sales Orders only)
+      Values: inventory-warehouse, inventory-product,
+              inbound-list, inbound-create, outbound-list, outbound-create,
+              movement-list, movement-create, transfer-list, transfer-create,
+              order-list, order-create
     
     scripts.jsp:
     - pageScript: Additional JS file path (e.g., "/assets/js/custom.js")

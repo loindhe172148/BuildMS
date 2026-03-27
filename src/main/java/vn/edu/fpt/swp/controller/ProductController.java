@@ -11,9 +11,14 @@ import vn.edu.fpt.swp.model.Product;
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.service.CategoryService;
 import vn.edu.fpt.swp.service.ProductService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for Product Management
@@ -122,59 +127,73 @@ public class ProductController extends HttpServlet {
      */
     private void listProducts(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
         String keyword = request.getParameter("keyword");
         String categoryIdStr = request.getParameter("categoryId");
         String status = request.getParameter("status");
-        
-        List<Product> products;
-        
-        // Apply filters
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            // Search by keyword (SKU or name)
-            products = productService.searchProducts(keyword.trim());
-            request.setAttribute("keyword", keyword.trim());
+
+        String selectedKeyword = keyword != null ? keyword.trim() : null;
+        String selectedStatus = null;
+        Long selectedCategoryId = null;
+        Boolean statusFilter = null;
+
+        if (selectedKeyword != null && !selectedKeyword.isEmpty()) {
+            request.setAttribute("keyword", selectedKeyword);
+            selectedCategoryId = null;
+            statusFilter = null;
         } else if (categoryIdStr != null && !categoryIdStr.trim().isEmpty()) {
-            // Filter by category
             try {
-                Long categoryId = Long.parseLong(categoryIdStr.trim());
-                products = productService.getProductsByCategory(categoryId);
-                request.setAttribute("categoryId", categoryId);
+                selectedCategoryId = Long.parseLong(categoryIdStr.trim());
+                request.setAttribute("categoryId", selectedCategoryId);
+                selectedKeyword = null;
             } catch (NumberFormatException e) {
-                products = productService.getAllProducts();
+                selectedCategoryId = null;
             }
         } else if (status != null && !status.trim().isEmpty()) {
-            // Filter by status
             if ("active".equalsIgnoreCase(status)) {
-                products = productService.getProductsByStatus(true);
-                request.setAttribute("status", "active");
+                selectedStatus = "active";
+                statusFilter = true;
             } else if ("inactive".equalsIgnoreCase(status)) {
-                products = productService.getProductsByStatus(false);
-                request.setAttribute("status", "inactive");
-            } else {
-                products = productService.getAllProducts();
+                selectedStatus = "inactive";
+                statusFilter = false;
             }
-        } else {
-            // Get all products
-            products = productService.getAllProducts();
+            request.setAttribute("status", selectedStatus);
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Product> productPage = productService.searchProductsPaginated(
+            selectedKeyword,
+            selectedCategoryId,
+            statusFilter,
+            pageRequest
+        );
         
         // Get all categories for filter dropdown
         List<Category> categories = categoryService.getAllCategories();
         request.setAttribute("categories", categories);
         
         // Build category map for display
+        java.util.Map<Long, String> categoryMap = new java.util.HashMap<>();
         for (Category category : categories) {
-            request.setAttribute("categoryName_" + category.getId(), category.getName());
+            categoryMap.put(category.getId(), category.getName());
         }
-        
-        // Add total inventory quantity for each product
-        for (Product product : products) {
-            int totalQty = productService.getTotalInventoryQuantity(product.getId());
-            request.setAttribute("totalQty_" + product.getId(), totalQty);
-        }
-        
-        request.setAttribute("products", products);
+        request.setAttribute("categoryMap", categoryMap);
+
+        // Fetch all inventory totals in ONE query instead of N per-product queries
+        java.util.Map<Long, Integer> inventoryTotals = productService.getAllProductTotalQuantities();
+        request.setAttribute("inventoryTotals", inventoryTotals);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("categoryId", selectedCategoryId != null ? String.valueOf(selectedCategoryId) : null);
+        paginationParams.put("status", selectedStatus);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("products", productPage.getItems());
+        request.setAttribute("currentPage", productPage.getCurrentPage());
+        request.setAttribute("totalPages", productPage.getTotalPages());
+        request.setAttribute("pageSize", productPage.getPageSize());
+        request.setAttribute("totalItems", productPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/product", paginationParams));
         request.getRequestDispatcher("/WEB-INF/views/product/list.jsp").forward(request, response);
     }
     
@@ -396,7 +415,9 @@ public class ProductController extends HttpServlet {
                     request.setAttribute("product", product);
                 }
                 request.setAttribute("categories", categoryService.getAllCategories());
-                request.setAttribute("hasInventory", productService.getTotalInventoryQuantity(id) > 0);
+                int invQty = productService.getTotalInventoryQuantity(id);
+                request.setAttribute("hasInventory", invQty > 0);
+                request.setAttribute("inventoryQty", invQty);
                 request.getRequestDispatcher("/WEB-INF/views/product/edit.jsp").forward(request, response);
                 return;
             }
@@ -418,7 +439,9 @@ public class ProductController extends HttpServlet {
                     existing.setCategoryId(categoryId);
                     request.setAttribute("product", existing);
                     request.setAttribute("categories", categoryService.getAllCategories());
-                    request.setAttribute("hasInventory", productService.getTotalInventoryQuantity(id) > 0);
+                    int invQty2 = productService.getTotalInventoryQuantity(id);
+                    request.setAttribute("hasInventory", invQty2 > 0);
+                    request.setAttribute("inventoryQty", invQty2);
                     request.getRequestDispatcher("/WEB-INF/views/product/edit.jsp").forward(request, response);
                     return;
                 }
@@ -523,6 +546,16 @@ public class ProductController extends HttpServlet {
             int pendingOrders = 0;
             if (!"Sales".equals(role)) {
                 pendingOrders = productService.getPendingOrderCount(id);
+            }
+            
+            // Get inventory breakdown (not visible to Sales)
+            if (!"Sales".equals(role)) {
+                HttpSession session = request.getSession(false);
+                User currentUser = (User) session.getAttribute("user");
+                Long warehouseFilter = "Staff".equals(role) ? currentUser.getWarehouseId() : null;
+                java.util.List<java.util.Map<String, Object>> inventoryBreakdown = 
+                    productService.getInventoryBreakdown(id, warehouseFilter);
+                request.setAttribute("inventoryBreakdown", inventoryBreakdown);
             }
             
             request.setAttribute("product", product);

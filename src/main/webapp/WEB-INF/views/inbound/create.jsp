@@ -222,7 +222,7 @@
         // Products data for dropdown
         const products = [
             <c:forEach var="product" items="${products}" varStatus="status">
-            { id: ${product.id}, name: "${fn:escapeXml(product.name)}", sku: "${fn:escapeXml(product.sku)}" }<c:if test="${!status.last}">,</c:if>
+            { id: ${product.id}, name: "${fn:escapeXml(product.name)}", sku: "${fn:escapeXml(product.sku)}", unit: "${fn:escapeXml(product.unit)}" }<c:if test="${!status.last}">,</c:if>
             </c:forEach>
         ];
         
@@ -246,7 +246,7 @@
                                 <label class="form-label">Product <span class="text-danger">*</span></label>
                                 <select class="form-select" name="productId" required>
                                     <option value="">Select product...</option>
-                                    \${products.map(p => `<option value="\${p.id}">\${p.sku} - \${p.name}</option>`).join('')}
+                                    \${products.map(p => `<option value="\${p.id}">\${p.sku} - \${p.name} (\${p.unit})</option>`).join('')}
                                 </select>
                             </div>
                             <div class="col-md-3 mb-3">

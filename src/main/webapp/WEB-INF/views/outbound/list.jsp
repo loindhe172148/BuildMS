@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
 
@@ -49,7 +50,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -58,7 +59,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -67,7 +68,7 @@
                         <c:if test="${not empty sessionScope.warningMessage}">
                             <div class="alert alert-warning alert-dismissible fade show" role="alert">
                                 <i class="bx bx-info-circle me-2"></i>
-                                ${sessionScope.warningMessage}
+                                <c:out value="${sessionScope.warningMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="warningMessage" scope="session" />
@@ -95,24 +96,37 @@
                                     <div class="col-md-4">
                                         <select class="form-select" name="status">
                                             <option value="">All Status</option>
-                                            <option value="Created" ${selectedStatus == 'Created' ? 'selected' : ''}>Created (Pending)</option>
-                                            <option value="Approved" ${selectedStatus == 'Approved' ? 'selected' : ''}>Approved</option>
-                                            <option value="InProgress" ${selectedStatus == 'InProgress' ? 'selected' : ''}>In Progress</option>
-                                            <option value="Completed" ${selectedStatus == 'Completed' ? 'selected' : ''}>Completed</option>
-                                            <option value="Rejected" ${selectedStatus == 'Rejected' ? 'selected' : ''}>Rejected</option>
+                                            <option value="Created" <c:out value="${selectedStatus == 'Created' ? 'selected' : ''}"/>>Created (Pending)</option>
+                                            <option value="Approved" <c:out value="${selectedStatus == 'Approved' ? 'selected' : ''}"/>>Approved</option>
+                                            <option value="InProgress" <c:out value="${selectedStatus == 'InProgress' ? 'selected' : ''}"/>>In Progress</option>
+                                            <option value="Completed" <c:out value="${selectedStatus == 'Completed' ? 'selected' : ''}"/>>Completed</option>
+                                            <option value="Rejected" <c:out value="${selectedStatus == 'Rejected' ? 'selected' : ''}"/>>Rejected</option>
                                         </select>
                                     </div>
                                     
                                     <!-- Filter by Warehouse -->
                                     <div class="col-md-4">
-                                        <select class="form-select" name="warehouseId">
-                                            <option value="">All Warehouses</option>
-                                            <c:forEach var="wh" items="${warehouses}">
-                                                <option value="${wh.id}" ${selectedWarehouseId == wh.id ? 'selected' : ''}>
-                                                    ${wh.name}
-                                                </option>
-                                            </c:forEach>
-                                        </select>
+                                        <c:choose>
+                                            <c:when test="${isManager}">
+                                                <select class="form-select" disabled>
+                                                    <c:forEach var="wh" items="${warehouses}">
+                                                        <c:if test="${wh.id == selectedWarehouseId}">
+                                                            <option selected><c:out value="${wh.name}"/></option>
+                                                        </c:if>
+                                                    </c:forEach>
+                                                </select>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <select class="form-select" name="warehouseId">
+                                                    <option value="">All Warehouses</option>
+                                                    <c:forEach var="wh" items="${warehouses}">
+                                                        <option value="<c:out value='${wh.id}'/>" <c:out value="${selectedWarehouseId == wh.id ? 'selected' : ''}"/>>
+                                                            <c:out value="${wh.name}"/>
+                                                        </option>
+                                                    </c:forEach>
+                                                </select>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </div>
                                     
                                     <div class="col-md-4">
@@ -131,7 +145,7 @@
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Outbound Requests</h5>
-                                <span class="badge bg-primary">${requests.size()} total</span>
+                                <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
@@ -159,11 +173,11 @@
                                             <c:otherwise>
                                                 <c:forEach var="req" items="${requests}">
                                                     <tr>
-                                                        <td><strong>#${req.id}</strong></td>
+                                                        <td><strong>#<c:out value="${req.id}"/></strong></td>
                                                         <td>
                                                             <c:choose>
-                                                                <c:when test="${not empty requestScope['warehouseName_'.concat(req.sourceWarehouseId)]}">
-                                                                    ${requestScope['warehouseName_'.concat(req.sourceWarehouseId)]}
+                                                                <c:when test="${not empty warehouseMap[req.sourceWarehouseId]}">
+                                                                    <c:out value="${warehouseMap[req.sourceWarehouseId]}"/>
                                                                 </c:when>
                                                                 <c:otherwise>
                                                                     <span class="text-muted">-</span>
@@ -173,10 +187,10 @@
                                                         <td>
                                                             <c:choose>
                                                                 <c:when test="${not empty req.reason}">
-                                                                    <span class="badge bg-label-secondary">${req.reason}</span>
+                                                                    <span class="badge bg-label-secondary"><c:out value="${req.reason}"/></span>
                                                                 </c:when>
                                                                 <c:when test="${not empty req.salesOrderId}">
-                                                                    <span class="badge bg-label-info">Sales Order #${req.salesOrderId}</span>
+                                                                    <span class="badge bg-label-info">Sales Order #<c:out value="${req.salesOrderId}"/></span>
                                                                 </c:when>
                                                                 <c:otherwise>
                                                                     <span class="text-muted">-</span>
@@ -185,17 +199,17 @@
                                                         </td>
                                                         <td>
                                                             <c:choose>
-                                                                <c:when test="${not empty requestScope['userName_'.concat(req.createdBy)]}">
-                                                                    ${requestScope['userName_'.concat(req.createdBy)]}
+                                                                <c:when test="${not empty userMap[req.createdBy]}">
+                                                                    <c:out value="${userMap[req.createdBy]}"/>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="text-muted">User #${req.createdBy}</span>
+                                                                    <span class="text-muted">User #<c:out value="${req.createdBy}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
                                                         <td>
                                                             <c:if test="${not empty req.createdAt}">
-                                                                ${req.createdAt.toLocalDate()}
+                                                                <c:out value="${req.createdAt.toLocalDate()}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
@@ -216,7 +230,7 @@
                                                                     <span class="badge bg-label-danger">Rejected</span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="badge bg-label-secondary">${req.status}</span>
+                                                                    <span class="badge bg-label-secondary"><c:out value="${req.status}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
@@ -247,9 +261,16 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="card-footer">
+                                <jsp:include page="/WEB-INF/common/pagination.jsp">
+                                    <jsp:param name="currentPage" value="${currentPage}" />
+                                    <jsp:param name="totalPages" value="${totalPages}" />
+                                    <jsp:param name="baseUrl" value="${paginationBaseUrl}" />
+                                </jsp:include>
+                            </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />

@@ -11,8 +11,8 @@
        <a href="#" class="btn btn-danger" 
           data-bs-toggle="modal" 
           data-bs-target="#deleteModal"
-          data-delete-url="${contextPath}/product?action=delete&id=${product.id}"
-          data-item-name="${product.name}">
+          data-delete-url="${contextPath}/product?action=delete&id=<c:out value='${product.id}'/>"
+          data-item-name="<c:out value='${product.name}'/>">
            Delete
        </a>
     

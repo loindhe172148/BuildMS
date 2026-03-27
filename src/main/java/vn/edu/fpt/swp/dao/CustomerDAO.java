@@ -2,10 +2,14 @@ package vn.edu.fpt.swp.dao;
 
 import vn.edu.fpt.swp.model.Customer;
 import vn.edu.fpt.swp.util.DBConnection;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Data Access Object for Customer entity
@@ -182,6 +186,62 @@ public class CustomerDAO {
         }
         return customers;
     }
+
+    public PageResult<Customer> searchPaginated(String keyword, String status, PageRequest pageRequest) {
+        List<Customer> customers = new ArrayList<>();
+        StringBuilder fromClause = new StringBuilder(" FROM Customers WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            fromClause.append(" AND (Code LIKE ? OR Name LIKE ?)");
+            String pattern = "%" + keyword.trim() + "%";
+            params.add(pattern);
+            params.add(pattern);
+        }
+
+        if (status != null && !status.trim().isEmpty()) {
+            fromClause.append(" AND Status = ?");
+            params.add(status.trim());
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT Id, Code, Name, ContactInfo, Status" + fromClause
+            + " ORDER BY Name OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        customers.add(mapResultSetToCustomer(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(customers, totalItems, pageRequest);
+    }
     
     /**
      * Update customer
@@ -286,6 +346,29 @@ public class CustomerDAO {
         return findByStatus("Active");
     }
     
+    /**
+     * Get order count for all customers in one query — avoids N+1 on the list page.
+     *
+     * @return Map of customerId -> order count
+     */
+    public Map<Long, Integer> getAllOrderCounts() {
+        Map<Long, Integer> result = new HashMap<>();
+        String sql = "SELECT CustomerId, COUNT(*) AS cnt FROM SalesOrders GROUP BY CustomerId";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                result.put(rs.getLong("CustomerId"), rs.getInt("cnt"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
     /**
      * Map ResultSet to Customer object
      * @param rs ResultSet

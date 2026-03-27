@@ -10,7 +10,7 @@
       data-template="vertical-menu-template-free">
 <head>
     <jsp:include page="/WEB-INF/common/head.jsp">
-        <jsp:param name="pageTitle" value="Transfer Requests" />
+        <jsp:param name="pageTitle" value="Sales Orders" />
     </jsp:include>
 </head>
 <body>
@@ -20,8 +20,8 @@
             
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
-                <jsp:param name="activeMenu" value="transfers" />
-                <jsp:param name="activeSubMenu" value="transfer-list" />
+                <jsp:param name="activeMenu" value="sales-orders" />
+                <jsp:param name="activeSubMenu" value="order-list" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -41,7 +41,7 @@
                                 <li class="breadcrumb-item">
                                     <a href="${contextPath}/dashboard">Dashboard</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">Transfer Requests</li>
+                                <li class="breadcrumb-item active" aria-current="page">Sales Orders</li>
                             </ol>
                         </nav>
                         
@@ -51,11 +51,11 @@
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h4 class="mb-0">
-                                <i class="bx bx-transfer me-2"></i>Transfer Requests
+                                <i class="bx bx-cart me-2"></i>Sales Orders
                             </h4>
-                            <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
-                                <a href="${contextPath}/transfer?action=create" class="btn btn-primary">
-                                    <i class="bx bx-plus me-1"></i> Create Transfer
+                            <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales'}">
+                                <a href="${contextPath}/sales-order?action=create" class="btn btn-primary">
+                                    <i class="bx bx-plus me-1"></i> Create Order
                                 </a>
                             </c:if>
                         </div>
@@ -63,18 +63,16 @@
                         <!-- Filter -->
                         <div class="card mb-4">
                             <div class="card-body">
-                                <form method="get" action="${contextPath}/transfer" class="row g-3">
+                                <form method="get" action="${contextPath}/sales-order" class="row g-3">
                                     <div class="col-md-4">
                                         <label class="form-label">Status</label>
                                         <select name="status" class="form-select">
                                             <option value="">All Status</option>
-                                            <option value="Created" <c:out value="${selectedStatus == 'Created' ? 'selected' : ''}"/>>Created</option>
-                                            <option value="Approved" <c:out value="${selectedStatus == 'Approved' ? 'selected' : ''}"/>>Approved</option>
-                                            <option value="InProgress" <c:out value="${selectedStatus == 'InProgress' ? 'selected' : ''}"/>>Outbound In Progress</option>
-                                            <option value="InTransit" <c:out value="${selectedStatus == 'InTransit' ? 'selected' : ''}"/>>In Transit</option>
-                                            <option value="Receiving" <c:out value="${selectedStatus == 'Receiving' ? 'selected' : ''}"/>>Receiving</option>
+                                            <option value="Draft" <c:out value="${selectedStatus == 'Draft' ? 'selected' : ''}"/>>Draft</option>
+                                            <option value="Confirmed" <c:out value="${selectedStatus == 'Confirmed' ? 'selected' : ''}"/>>Confirmed</option>
+                                            <option value="FulfillmentRequested" <c:out value="${selectedStatus == 'FulfillmentRequested' ? 'selected' : ''}"/>>Fulfillment Requested</option>
                                             <option value="Completed" <c:out value="${selectedStatus == 'Completed' ? 'selected' : ''}"/>>Completed</option>
-                                            <option value="Rejected" <c:out value="${selectedStatus == 'Rejected' ? 'selected' : ''}"/>>Rejected</option>
+                                            <option value="Cancelled" <c:out value="${selectedStatus == 'Cancelled' ? 'selected' : ''}"/>>Cancelled</option>
                                         </select>
                                     </div>
                                     <div class="col-md-2 d-flex align-items-end">
@@ -86,19 +84,18 @@
                             </div>
                         </div>
                         
-                        <!-- Transfers Table -->
+                        <!-- Orders Table -->
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Transfer Request List</h5>
+                                <h5 class="mb-0">Order List</h5>
                                 <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
-                                            <th>ID</th>
-                                            <th>Source Warehouse</th>
-                                            <th>Destination Warehouse</th>
+                                            <th>Order No</th>
+                                            <th>Customer</th>
                                             <th>Status</th>
                                             <th>Created By</th>
                                             <th>Created At</th>
@@ -107,63 +104,54 @@
                                     </thead>
                                     <tbody>
                                         <c:choose>
-                                            <c:when test="${empty transfers}">
+                                            <c:when test="${empty orders}">
                                                 <tr>
-                                                    <td colspan="7" class="text-center py-4">
-                                                        <i class="bx bx-info-circle me-1"></i> No transfer requests found
+                                                    <td colspan="6" class="text-center py-4">
+                                                        <i class="bx bx-info-circle me-1"></i> No sales orders found
                                                     </td>
                                                 </tr>
                                             </c:when>
                                             <c:otherwise>
-                                                <c:forEach var="data" items="${transfers}">
+                                                <c:forEach var="orderData" items="${orders}">
                                                     <tr>
-                                                        <td><strong>#<c:out value="${data.request.id}"/></strong></td>
                                                         <td>
-                                                            <c:if test="${not empty data.sourceWarehouse}">
-                                                                <c:out value="${data.sourceWarehouse.name}"/>
-                                                            </c:if>
+                                                            <strong><c:out value="${orderData.order.orderNo}"/></strong>
                                                         </td>
                                                         <td>
-                                                            <c:if test="${not empty data.destinationWarehouse}">
-                                                                <c:out value="${data.destinationWarehouse.name}"/>
+                                                            <c:if test="${not empty orderData.customer}">
+                                                                <c:out value="${orderData.customer.name}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
                                                             <c:choose>
-                                                                <c:when test="${data.request.status == 'Created'}">
-                                                                    <span class="badge bg-label-secondary">Created</span>
+                                                                <c:when test="${orderData.order.status == 'Draft'}">
+                                                                    <span class="badge bg-label-secondary">Draft</span>
                                                                 </c:when>
-                                                                <c:when test="${data.request.status == 'Approved'}">
-                                                                    <span class="badge bg-label-info">Approved</span>
+                                                                <c:when test="${orderData.order.status == 'Confirmed'}">
+                                                                    <span class="badge bg-label-info">Confirmed</span>
                                                                 </c:when>
-                                                                <c:when test="${data.request.status == 'InProgress'}">
-                                                                    <span class="badge bg-label-warning">Picking</span>
+                                                                <c:when test="${orderData.order.status == 'FulfillmentRequested'}">
+                                                                    <span class="badge bg-label-warning">Fulfillment Requested</span>
                                                                 </c:when>
-                                                                <c:when test="${data.request.status == 'InTransit'}">
-                                                                    <span class="badge bg-label-primary">In Transit</span>
-                                                                </c:when>
-                                                                <c:when test="${data.request.status == 'Receiving'}">
-                                                                    <span class="badge bg-label-warning">Receiving</span>
-                                                                </c:when>
-                                                                <c:when test="${data.request.status == 'Completed'}">
+                                                                <c:when test="${orderData.order.status == 'Completed'}">
                                                                     <span class="badge bg-label-success">Completed</span>
                                                                 </c:when>
-                                                                <c:when test="${data.request.status == 'Rejected'}">
-                                                                    <span class="badge bg-label-danger">Rejected</span>
+                                                                <c:when test="${orderData.order.status == 'Cancelled'}">
+                                                                    <span class="badge bg-label-danger">Cancelled</span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="badge bg-label-secondary"><c:out value="${data.request.status}"/></span>
+                                                                    <span class="badge bg-label-secondary"><c:out value="${orderData.order.status}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
                                                         <td>
-                                                            <c:if test="${not empty data.creator}">
-                                                                <c:out value="${data.creator.fullName}"/>
+                                                            <c:if test="${not empty orderData.creator}">
+                                                                <c:out value="${orderData.creator.fullName}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
-                                                            <c:if test="${not empty data.request.createdAt}">
-                                                                <c:out value="${data.request.createdAt.toLocalDate()}"/> <c:out value="${data.request.createdAt.toLocalTime().toString().substring(0, 5)}"/>
+                                                            <c:if test="${not empty orderData.order.createdAt}">
+                                                                <c:out value="${orderData.order.createdAt.toLocalDate()}"/> <c:out value="${orderData.order.createdAt.toLocalTime().toString().substring(0, 5)}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
@@ -172,32 +160,29 @@
                                                                     <i class="bx bx-dots-vertical-rounded" aria-hidden="true"></i>
                                                                 </button>
                                                                 <div class="dropdown-menu">
-                                                                    <a class="dropdown-item" href="${contextPath}/transfer?action=view&id=${data.request.id}">
+                                                                    <a class="dropdown-item" href="${contextPath}/sales-order?action=view&id=${orderData.order.id}">
                                                                         <i class="bx bx-show me-1"></i> View Details
                                                                     </a>
                                                                     
-                                                                    <%-- Approve: only dest WH Manager or Admin, status=Created --%>
-                                                                    <c:if test="${data.request.status == 'Created' && (data.isAdmin || (data.isAtDestWH && currentUser.role == 'Manager'))}">
-                                                                        <form action="${contextPath}/transfer" method="post" style="display: inline;">
-                                                                            <input type="hidden" name="action" value="approve">
-                                                                            <input type="hidden" name="id" value="${data.request.id}">
+                                                                    <c:if test="${orderData.order.status == 'Draft' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
+                                                                        <form action="${contextPath}/sales-order" method="post" style="display: inline;">
+                                                                            <input type="hidden" name="action" value="confirm">
+                                                                            <input type="hidden" name="id" value="${orderData.order.id}">
                                                                             <button type="submit" class="dropdown-item">
-                                                                                <i class="bx bx-check-circle me-1"></i> Approve
+                                                                                <i class="bx bx-check-circle me-1"></i> Confirm Order
                                                                             </button>
                                                                         </form>
                                                                     </c:if>
                                                                     
-                                                                    <%-- Execute Outbound: only source WH Staff/Manager or Admin --%>
-                                                                    <c:if test="${(data.request.status == 'Approved' || data.request.status == 'InProgress') && (data.isAdmin || data.isAtSourceWH)}">
-                                                                        <a class="dropdown-item" href="${contextPath}/transfer?action=execute-outbound&id=${data.request.id}">
-                                                                            <i class="bx bx-export me-1"></i> Execute Outbound
+                                                                    <c:if test="${orderData.order.status == 'Confirmed' && (currentUser.role == 'Admin' || currentUser.role == 'Manager')}">
+                                                                        <a class="dropdown-item" href="${contextPath}/sales-order?action=generate-outbound&id=${orderData.order.id}">
+                                                                            <i class="bx bx-export me-1"></i> Generate Outbound
                                                                         </a>
                                                                     </c:if>
                                                                     
-                                                                    <%-- Execute Inbound: only dest WH Staff/Manager or Admin --%>
-                                                                    <c:if test="${(data.request.status == 'InTransit' || data.request.status == 'Receiving') && (data.isAdmin || data.isAtDestWH)}">
-                                                                        <a class="dropdown-item" href="${contextPath}/transfer?action=execute-inbound&id=${data.request.id}">
-                                                                            <i class="bx bx-import me-1"></i> Execute Inbound
+                                                                    <c:if test="${orderData.order.status != 'Completed' && orderData.order.status != 'Cancelled' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
+                                                                        <a class="dropdown-item text-danger" href="${contextPath}/sales-order?action=cancel&id=${orderData.order.id}">
+                                                                            <i class="bx bx-x-circle me-1"></i> Cancel Order
                                                                         </a>
                                                                     </c:if>
                                                                 </div>

@@ -15,6 +15,9 @@ public class SalesOrder implements Serializable {
     private String status; // Draft / Confirmed / FulfillmentRequested / Completed / Cancelled
     private Long createdBy;
     private LocalDateTime createdAt;
+    private LocalDateTime orderDate;
+    private LocalDateTime requiredDeliveryDate;
+    private String notes;
     private Long confirmedBy;
     private LocalDateTime confirmedDate;
     private Long cancelledBy;
@@ -82,6 +85,30 @@ public class SalesOrder implements Serializable {
     
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getOrderDate() {
+        return orderDate;
+    }
+
+    public void setOrderDate(LocalDateTime orderDate) {
+        this.orderDate = orderDate;
+    }
+
+    public LocalDateTime getRequiredDeliveryDate() {
+        return requiredDeliveryDate;
+    }
+
+    public void setRequiredDeliveryDate(LocalDateTime requiredDeliveryDate) {
+        this.requiredDeliveryDate = requiredDeliveryDate;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 
     public Long getConfirmedBy() {

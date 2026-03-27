@@ -43,7 +43,7 @@
                                 <li class="breadcrumb-item">
                                     <a href="${contextPath}/product?action=list">Products</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">${product.sku}</li>
+                                <li class="breadcrumb-item active" aria-current="page"><c:out value="${product.sku}"/></li>
                             </ol>
                         </nav>
                         
@@ -51,9 +51,9 @@
                         <div class="d-flex justify-content-between align-items-center mb-6">
                             <div>
                                 <h4 class="mb-1">
-                                    <i class="bx bx-package" aria-hidden="true me-2"></i>${product.name}
+                                    <i class="bx bx-package" aria-hidden="true me-2"></i><c:out value="${product.name}"/>
                                 </h4>
-                                <span class="text-muted">SKU: ${product.sku}</span>
+                                <span class="text-muted">SKU: <c:out value="${product.sku}"/></span>
                             </div>
                             <div class="d-flex gap-2">
                                 <a href="${contextPath}/product?action=list" class="btn btn-outline-secondary">
@@ -87,7 +87,7 @@
                                                     </div>
                                                     <div class="flex-grow-1">
                                                         <small class="text-muted d-block">SKU</small>
-                                                        <span class="fw-medium">${product.sku}</span>
+                                                        <span class="fw-medium"><c:out value="${product.sku}"/></span>
                                                     </div>
                                                 </div>
                                             </li>
@@ -103,7 +103,7 @@
                                                         <span class="fw-medium">
                                                             <c:choose>
                                                                 <c:when test="${not empty category}">
-                                                                    ${category.name}
+                                                                    <c:out value="${category.name}"/>
                                                                 </c:when>
                                                                 <c:otherwise>
                                                                     <span class="text-muted">Unknown</span>
@@ -125,7 +125,7 @@
                                                         <span class="fw-medium">
                                                             <c:choose>
                                                                 <c:when test="${not empty product.unit}">
-                                                                    ${product.unit}
+                                                                    <c:out value="${product.unit}"/>
                                                                 </c:when>
                                                                 <c:otherwise>
                                                                     <span class="text-muted">Not specified</span>
@@ -145,7 +145,7 @@
                                                     <div class="flex-grow-1">
                                                         <small class="text-muted d-block">Status</small>
                                                         <span class="badge bg-${product.active ? 'success' : 'secondary'}">
-                                                            ${product.active ? 'Active' : 'Inactive'}
+                                                            <c:out value="${product.active ? 'Active' : 'Inactive'}"/>
                                                         </span>
                                                     </div>
                                                 </div>
@@ -162,7 +162,7 @@
                                                         <span class="fw-medium">
                                                             <c:choose>
                                                                 <c:when test="${not empty product.createdAt}">
-                                                                    ${product.createdAt}
+                                                                    <c:out value="${product.createdAt}"/>
                                                                 </c:when>
                                                                 <c:otherwise>
                                                                     <span class="text-muted">Unknown</span>
@@ -190,7 +190,7 @@
                                             <div class="d-flex justify-content-center mb-4">
                                                 <div class="text-center">
                                                     <div class="avatar avatar-xl bg-label-primary mb-3">
-                                                        <span class="fs-3">${totalInventory}</span>
+                                                        <span class="fs-3"><c:out value="${totalInventory}"/></span>
                                                     </div>
                                                     <h6 class="mb-0">Total Quantity</h6>
                                                     <small class="text-muted">across all locations</small>
@@ -207,7 +207,7 @@
                                             <c:if test="${pendingOrders > 0}">
                                                 <div class="alert alert-info mb-0 mt-3">
                                                     <i class="bx bx-time-five me-1"></i>
-                                                    <strong>${pendingOrders}</strong> pending order(s) contain this product.
+                                                    <strong><c:out value="${pendingOrders}"/></strong> pending order(s) contain this product.
                                                 </div>
                                             </c:if>
                                         </div>
@@ -235,7 +235,7 @@
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#toggleModal">
                                                     <i class="bx ${product.active ? 'bx-block' : 'bx-check'} me-1"></i>
-                                                    ${product.active ? 'Deactivate' : 'Activate'} Product
+                                                    <c:out value="${product.active ? 'Deactivate' : 'Activate'}"/> Product
                                                 </button>
                                             </div>
                                             
@@ -285,7 +285,7 @@
                             </div>
                         </c:if>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->
@@ -317,8 +317,8 @@
                     <div class="modal-body">
                         <p>
                             Are you sure you want to 
-                            <strong>${product.active ? 'deactivate' : 'activate'}</strong> 
-                            product "<strong>${product.name}</strong>"?
+                            <strong><c:out value="${product.active ? 'deactivate' : 'activate'}"/></strong> 
+                            product "<strong><c:out value="${product.name}"/></strong>"?
                         </p>
                         <c:if test="${product.active}">
                             <div class="alert alert-warning mb-0">
@@ -329,7 +329,7 @@
                         <c:if test="${product.active && pendingOrders > 0}">
                             <div class="alert alert-info mt-3 mb-0">
                                 <i class="bx bx-time-five me-1"></i>
-                                This product is in <strong>${pendingOrders}</strong> pending order(s). 
+                                This product is in <strong><c:out value="${pendingOrders}"/></strong> pending order(s). 
                                 These orders can still be processed.
                             </div>
                         </c:if>
@@ -338,7 +338,7 @@
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                         <a href="${contextPath}/product?action=toggle&id=${product.id}" 
                            class="btn ${product.active ? 'btn-warning' : 'btn-success'}">
-                            <i class="bx bx-check me-1"></i>${product.active ? 'Deactivate' : 'Activate'}
+                            <i class="bx bx-check me-1"></i><c:out value="${product.active ? 'Deactivate' : 'Activate'}"/>
                         </a>
                     </div>
                 </div>

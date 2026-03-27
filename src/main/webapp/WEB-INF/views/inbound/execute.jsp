@@ -144,11 +144,11 @@
                                                             
                                                             <div class="col-md-3">
                                                                 <label class="form-label">Expected Qty</label>
-                                                                <input type="text" class="form-control" value="<c:out value='${item.quantity}'/>" readonly />
+                                                                <input type="text" class="form-control" value="<c:out value='${item.quantity}'/> <c:out value='${requestScope["productUnit_".concat(item.productId)]}'/>" readonly />
                                                             </div>
                                                             
                                                             <div class="col-md-3">
-                                                                <label class="form-label">Received Qty <span class="text-danger">*</span></label>
+                                                                <label class="form-label">Received Qty (<c:out value='${requestScope["productUnit_".concat(item.productId)]}'/>) <span class="text-danger">*</span></label>
                                                                 <input type="number" class="form-control" name="receivedQuantity" 
                                                                      min="0" value="<c:out value='${item.receivedQuantity != null ? item.receivedQuantity : item.quantity}'/>" required />
                                                             </div>

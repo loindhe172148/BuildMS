@@ -9,9 +9,14 @@ import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.Category;
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.service.CategoryService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for Category Management
@@ -103,25 +108,29 @@ public class CategoryController extends HttpServlet {
      */
     private void listCategories(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
         String keyword = request.getParameter("keyword");
-        List<Category> categories;
-        
-        // Search or get all
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            categories = categoryService.searchCategories(keyword.trim());
-            request.setAttribute("keyword", keyword.trim());
-        } else {
-            categories = categoryService.getAllCategories();
+        String selectedKeyword = keyword != null ? keyword.trim() : null;
+        if (selectedKeyword != null && !selectedKeyword.isEmpty()) {
+            request.setAttribute("keyword", selectedKeyword);
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Category> categoryPage = categoryService.searchCategoriesPaginated(selectedKeyword, pageRequest);
         
-        // Add product count for each category
-        for (Category category : categories) {
-            int productCount = categoryService.getProductCount(category.getId());
-            request.setAttribute("productCount_" + category.getId(), productCount);
-        }
-        
-        request.setAttribute("categories", categories);
+        // Fetch all product counts in ONE query instead of N per-category queries
+        java.util.Map<Long, Integer> productCountMap = categoryService.getAllProductCounts();
+        request.setAttribute("productCountMap", productCountMap);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("categories", categoryPage.getItems());
+        request.setAttribute("currentPage", categoryPage.getCurrentPage());
+        request.setAttribute("totalPages", categoryPage.getTotalPages());
+        request.setAttribute("pageSize", categoryPage.getPageSize());
+        request.setAttribute("totalItems", categoryPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/category", paginationParams));
         request.getRequestDispatcher("/WEB-INF/views/category/list.jsp").forward(request, response);
     }
     

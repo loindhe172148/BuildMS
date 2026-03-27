@@ -53,7 +53,7 @@
                                 <i class="bx bx-edit me-2"></i>Edit Product
                             </h4>
                             <span class="badge bg-label-${product.active ? 'success' : 'secondary'} fs-6">
-                                ${product.active ? 'Active' : 'Inactive'}
+                                <c:out value="${product.active ? 'Active' : 'Inactive'}"/>
                             </span>
                         </div>
                         
@@ -70,7 +70,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -79,7 +79,7 @@
                                         <c:if test="${hasInventory}">
                                             <div class="alert alert-warning" role="alert">
                                                 <i class="bx bx-info-circle me-2"></i>
-                                                <strong>Warning:</strong> This product has ${inventoryQty} units in inventory. 
+                                                <strong>Warning:</strong> This product has <c:out value="${inventoryQty}"/> units in inventory. 
                                                 Changing the SKU is not recommended as it may cause tracking issues.
                                             </div>
                                         </c:if>
@@ -97,7 +97,7 @@
                                                     <span class="input-group-text"><i class="bx bx-barcode"></i></span>
                                                     <input type="text" class="form-control ${hasInventory ? 'border-warning' : ''}" 
                                                            id="sku" name="sku" 
-                                                           value="${product.sku}" placeholder="e.g., PRD-001, SKU-ABC123"
+                                                           value="<c:out value='${product.sku}'/>" placeholder="e.g., PRD-001, SKU-ABC123"
                                                            required maxlength="100" />
                                                 </div>
                                                 <c:if test="${hasInventory}">
@@ -116,7 +116,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-package" aria-hidden="true"></i></span>
                                                     <input type="text" class="form-control" id="name" name="name" 
-                                                           value="${product.name}" placeholder="Enter product name"
+                                                           value="<c:out value='${product.name}'/>" placeholder="Enter product name"
                                                            required maxlength="255" />
                                                 </div>
                                             </div>
@@ -129,8 +129,8 @@
                                                 <select class="form-select" id="categoryId" name="categoryId" required>
                                                     <option value="">Select a category</option>
                                                     <c:forEach var="cat" items="${categories}">
-                                                        <option value="${cat.id}" ${product.categoryId == cat.id ? 'selected' : ''}>
-                                                            ${cat.name}
+                                                        <option value="<c:out value='${cat.id}'/>" <c:out value="${product.categoryId == cat.id ? 'selected' : ''}"/>>
+                                                            <c:out value="${cat.name}"/>
                                                         </option>
                                                     </c:forEach>
                                                 </select>
@@ -142,7 +142,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-ruler"></i></span>
                                                     <input type="text" class="form-control" id="unit" name="unit" 
-                                                           value="${product.unit}" placeholder="e.g., pcs, kg, box, carton"
+                                                           value="<c:out value='${product.unit}'/>" placeholder="e.g., pcs, kg, box, carton"
                                                            maxlength="50" list="unitSuggestions" />
                                                 </div>
                                                 <datalist id="unitSuggestions">
@@ -185,17 +185,17 @@
                                         </h6>
                                         <div class="d-flex align-items-center mb-3">
                                             <span class="badge bg-${product.active ? 'success' : 'secondary'} me-2">
-                                                ${product.active ? 'Active' : 'Inactive'}
+                                                <c:out value="${product.active ? 'Active' : 'Inactive'}"/>
                                             </span>
                                             <span class="text-muted">
-                                                ${product.active ? 'Product is available for orders' : 'Product cannot be added to new orders'}
+                                                <c:out value="${product.active ? 'Product is available for orders' : 'Product cannot be added to new orders'}"/>
                                             </span>
                                         </div>
                                         
                                         <c:if test="${hasInventory}">
                                             <div class="alert alert-info mb-0">
                                                 <i class="bx bx-box me-1"></i>
-                                                <strong>Current Inventory:</strong> ${inventoryQty} units across all locations
+                                                <strong>Current Inventory:</strong> <c:out value="${inventoryQty}"/> units across all locations
                                             </div>
                                         </c:if>
                                         
@@ -224,7 +224,7 @@
                                                     data-bs-toggle="modal" 
                                                     data-bs-target="#toggleModal">
                                                 <i class="bx ${product.active ? 'bx-block' : 'bx-check'} me-1"></i>
-                                                ${product.active ? 'Deactivate' : 'Activate'} Product
+                                                <c:out value="${product.active ? 'Deactivate' : 'Activate'}"/> Product
                                             </button>
                                         </div>
                                     </div>
@@ -232,7 +232,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->
@@ -263,8 +263,8 @@
                 <div class="modal-body">
                     <p>
                         Are you sure you want to 
-                        <strong>${product.active ? 'deactivate' : 'activate'}</strong> 
-                        product "<strong>${product.name}</strong>"?
+                        <strong><c:out value="${product.active ? 'deactivate' : 'activate'}"/></strong> 
+                        product "<strong><c:out value="${product.name}"/></strong>"?
                     </p>
                     <c:if test="${product.active}">
                         <div class="alert alert-warning mb-0">
@@ -277,7 +277,7 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <a href="${contextPath}/product?action=toggle&id=${product.id}" 
                        class="btn ${product.active ? 'btn-warning' : 'btn-success'}">
-                        <i class="bx bx-check me-1"></i>${product.active ? 'Deactivate' : 'Activate'}
+                        <i class="bx bx-check me-1"></i><c:out value="${product.active ? 'Deactivate' : 'Activate'}"/>
                     </a>
                 </div>
             </div>

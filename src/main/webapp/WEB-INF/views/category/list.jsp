@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
 
@@ -48,7 +49,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -57,7 +58,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -84,7 +85,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="bx bx-search"></i></span>
                                             <input type="text" class="form-control" name="keyword" 
-                                                   value="${keyword}" placeholder="Search by name or description..." />
+                                                   value="<c:out value='${keyword}'/>" placeholder="Search by name or description..." />
                                         </div>
                                     </div>
                                     <div class="col-md-2">
@@ -98,7 +99,7 @@
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Categories</h5>
-                                <span class="badge bg-primary">${categories.size()} total</span>
+                                <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
@@ -133,18 +134,18 @@
                                             </c:when>
                                             <c:otherwise>
                                                 <c:forEach var="category" items="${categories}" varStatus="status">
-                                                    <c:set var="productCount" value="${requestScope['productCount_'.concat(category.id)]}" />
+                                                    <c:set var="productCount" value="${productCountMap[category.id]}" />
                                                     <tr>
-                                                        <td><strong>${status.index + 1}</strong></td>
+                                                        <td><strong>${(currentPage - 1) * pageSize + status.index + 1}</strong></td>
                                                         <td>
-                                                            <span class="fw-medium">${category.name}</span>
+                                                            <span class="fw-medium"><c:out value="${category.name}"/></span>
                                                         </td>
                                                         <td>
                                                             <c:choose>
                                                                 <c:when test="${not empty category.description}">
                                                                     <span class="text-truncate d-inline-block" style="max-width: 300px;" 
-                                                                          title="${category.description}">
-                                                                        ${category.description}
+                                                                          title="<c:out value='${category.description}'/>">
+                                                                        <c:out value="${category.description}"/>
                                                                     </span>
                                                                 </c:when>
                                                                 <c:otherwise>
@@ -154,7 +155,7 @@
                                                         </td>
                                                         <td>
                                                             <span class="badge bg-label-info">
-                                                                <i class="bx bx-package" aria-hidden="true me-1"></i>${productCount} product(s)
+                                                                <i class="bx bx-package" aria-hidden="true me-1"></i><c:out value="${productCount}"/> product(s)
                                                             </span>
                                                         </td>
                                                         <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
@@ -172,7 +173,7 @@
                                                                                     class="btn btn-sm btn-outline-secondary" 
                                                                                     disabled
                                                                                     data-bs-toggle="tooltip" 
-                                                                                    title="Cannot delete - has ${productCount} product(s)"
+                                                                                    title="Cannot delete - has <c:out value='${productCount}'/> product(s)"
                                                                                     aria-label="Cannot delete category - has products">
                                                                                 <i class="bx bx-trash" aria-hidden="true"></i>
                                                                             </button>
@@ -182,8 +183,8 @@
                                                                                     class="btn btn-sm btn-outline-danger" 
                                                                                     data-bs-toggle="modal" 
                                                                                     data-bs-target="#deleteModal"
-                                                                                    data-category-id="${category.id}"
-                                                                                    data-category-name="${category.name}"
+                                                                                    data-category-id="<c:out value='${category.id}'/>"
+                                                                                    data-category-name="<c:out value='${category.name}'/>"
                                                                                     title="Delete"
                                                                                     aria-label="Delete category">
                                                                                 <i class="bx bx-trash" aria-hidden="true"></i>
@@ -200,8 +201,15 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="card-footer">
+                                <jsp:include page="/WEB-INF/common/pagination.jsp">
+                                    <jsp:param name="currentPage" value="${currentPage}" />
+                                    <jsp:param name="totalPages" value="${totalPages}" />
+                                    <jsp:param name="baseUrl" value="${paginationBaseUrl}" />
+                                </jsp:include>
+                            </div>
                         </div>
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

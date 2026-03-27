@@ -10,7 +10,7 @@
       data-template="vertical-menu-template-free">
 <head>
     <jsp:include page="/WEB-INF/common/head.jsp">
-        <jsp:param name="pageTitle" value="Outbound Request #${request.id}" />
+        <jsp:param name="pageTitle" value="Outbound Request #${outboundRequest.id}" />
     </jsp:include>
 </head>
 <body>
@@ -44,7 +44,7 @@
                                 <li class="breadcrumb-item">
                                     <a href="${contextPath}/outbound">Outbound Requests</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">Request #${outboundRequest.id}</li>
+                                <li class="breadcrumb-item active" aria-current="page">Request #<c:out value="${outboundRequest.id}"/></li>
                             </ol>
                         </nav>
                         
@@ -52,7 +52,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -61,7 +61,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -70,7 +70,7 @@
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-6">
                             <h4 class="mb-0">
-                                <i class="bx bx-package me-2"></i>Outbound Request #${outboundRequest.id}
+                                <i class="bx bx-package me-2"></i>Outbound Request #<c:out value="${outboundRequest.id}"/>
                             </h4>
                             <div>
                                 <a href="${contextPath}/outbound" class="btn btn-outline-secondary">
@@ -78,9 +78,16 @@
                                 </a>
                                 
                                 <c:if test="${outboundRequest.status == 'Created' && (currentUser.role == 'Admin' || currentUser.role == 'Manager')}">
-                                    <a href="${contextPath}/outbound?action=approve&id=${outboundRequest.id}" class="btn btn-success">
-                                        <i class="bx bx-check-circle me-1"></i>Approve/Reject
-                                    </a>
+                                    <form action="${contextPath}/outbound" method="post" style="display:inline;">
+                                        <input type="hidden" name="action" value="approve" />
+                                        <input type="hidden" name="id" value="${outboundRequest.id}" />
+                                        <button type="submit" class="btn btn-success" onclick="return confirm('Approve this outbound request?')">
+                                            <i class="bx bx-check-circle me-1"></i>Approve
+                                        </button>
+                                    </form>
+                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                        <i class="bx bx-x-circle me-1"></i>Reject
+                                    </button>
                                 </c:if>
                                 
                                 <c:if test="${(outboundRequest.status == 'Approved' || outboundRequest.status == 'InProgress') && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff')}">
@@ -124,34 +131,34 @@
                                                         <c:when test="${outboundRequest.type == 'Outbound'}">
                                                             <span class="badge bg-label-primary">Outbound</span>
                                                             <c:if test="${not empty outboundRequest.salesOrderId}">
-                                                                <span class="text-muted">(Sales Order #${outboundRequest.salesOrderId})</span>
+                                                                <span class="text-muted">(Sales Order #<c:out value="${outboundRequest.salesOrderId}"/>)</span>
                                                             </c:if>
                                                         </c:when>
                                                         <c:when test="${outboundRequest.type == 'Internal'}">
                                                             <span class="badge bg-label-secondary">Internal</span>
                                                         </c:when>
                                                         <c:otherwise>
-                                                            <span class="badge bg-label-info">${outboundRequest.type}</span>
+                                                            <span class="badge bg-label-info"><c:out value="${outboundRequest.type}"/></span>
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </p>
                                             </div>
                                             <div class="col-md-6">
                                                 <strong>Source Warehouse:</strong>
-                                                <p class="mb-0">${sourceWarehouse.name}</p>
+                                                <p class="mb-0"><c:out value="${not empty warehouse ? warehouse.name : 'N/A'}"/></p>
                                             </div>
                                         </div>
                                         
                                         <div class="row mb-3">
                                             <div class="col-md-6">
                                                 <strong>Created By:</strong>
-                                                <p class="mb-0">${createdByUser.fullName}</p>
+                                                <p class="mb-0"><c:out value="${not empty createdByUser ? createdByUser.fullName : 'Unknown'}"/></p>
                                             </div>
                                             <div class="col-md-6">
                                                 <strong>Created Date:</strong>
                                                 <p class="mb-0">
                                                     <c:if test="${not empty outboundRequest.createdAt}">
-                                                        ${outboundRequest.createdAt.toLocalDate()} ${outboundRequest.createdAt.toLocalTime().toString().substring(0, 5)}
+                                                        <c:out value="${outboundRequest.createdAt.toLocalDate()}"/> <c:out value="${outboundRequest.createdAt.toLocalTime().toString().substring(0, 5)}"/>
                                                     </c:if>
                                                 </p>
                                             </div>
@@ -161,7 +168,7 @@
                                             <div class="row mb-3">
                                                 <div class="col-12">
                                                     <strong>Reason:</strong>
-                                                    <p class="mb-0"><span class="badge bg-label-secondary">${outboundRequest.reason}</span></p>
+                                                    <p class="mb-0"><span class="badge bg-label-secondary"><c:out value="${outboundRequest.reason}"/></span></p>
                                                 </div>
                                             </div>
                                         </c:if>
@@ -170,7 +177,7 @@
                                             <div class="row mb-3">
                                                 <div class="col-12">
                                                     <strong>Notes:</strong>
-                                                    <p class="mb-0">${outboundRequest.notes}</p>
+                                                    <p class="mb-0"><c:out value="${outboundRequest.notes}"/></p>
                                                 </div>
                                             </div>
                                         </c:if>
@@ -183,7 +190,7 @@
                                                     <p class="mb-0">
                                                         <c:choose>
                                                             <c:when test="${not empty approvedByUser}">
-                                                                ${approvedByUser.fullName}
+                                                                <c:out value="${approvedByUser.fullName}"/>
                                                             </c:when>
                                                             <c:otherwise>-</c:otherwise>
                                                         </c:choose>
@@ -193,7 +200,7 @@
                                                     <strong>Approved Date:</strong>
                                                     <p class="mb-0">
                                                         <c:if test="${not empty outboundRequest.approvedDate}">
-                                                            ${outboundRequest.approvedDate.toLocalDate()} ${outboundRequest.approvedDate.toLocalTime().toString().substring(0, 5)}
+                                                            <c:out value="${outboundRequest.approvedDate.toLocalDate()}"/> <c:out value="${outboundRequest.approvedDate.toLocalTime().toString().substring(0, 5)}"/>
                                                         </c:if>
                                                     </p>
                                                 </div>
@@ -208,7 +215,7 @@
                                                     <p class="mb-0">
                                                         <c:choose>
                                                             <c:when test="${not empty rejectedByUser}">
-                                                                ${rejectedByUser.fullName}
+                                                                <c:out value="${rejectedByUser.fullName}"/>
                                                             </c:when>
                                                             <c:otherwise>-</c:otherwise>
                                                         </c:choose>
@@ -218,7 +225,7 @@
                                                     <strong>Rejected Date:</strong>
                                                     <p class="mb-0">
                                                         <c:if test="${not empty outboundRequest.rejectedDate}">
-                                                            ${outboundRequest.rejectedDate.toLocalDate()} ${outboundRequest.rejectedDate.toLocalTime().toString().substring(0, 5)}
+                                                            <c:out value="${outboundRequest.rejectedDate.toLocalDate()}"/> <c:out value="${outboundRequest.rejectedDate.toLocalTime().toString().substring(0, 5)}"/>
                                                         </c:if>
                                                     </p>
                                                 </div>
@@ -227,7 +234,7 @@
                                                 <div class="row">
                                                     <div class="col-12">
                                                         <strong>Rejection Reason:</strong>
-                                                        <p class="mb-0 text-danger">${outboundRequest.rejectionReason}</p>
+                                                        <p class="mb-0 text-danger"><c:out value="${outboundRequest.rejectionReason}"/></p>
                                                     </div>
                                                 </div>
                                             </c:if>
@@ -241,7 +248,7 @@
                                                     <p class="mb-0">
                                                         <c:choose>
                                                             <c:when test="${not empty completedByUser}">
-                                                                ${completedByUser.fullName}
+                                                                <c:out value="${completedByUser.fullName}"/>
                                                             </c:when>
                                                             <c:otherwise>-</c:otherwise>
                                                         </c:choose>
@@ -251,7 +258,7 @@
                                                     <strong>Completed Date:</strong>
                                                     <p class="mb-0">
                                                         <c:if test="${not empty outboundRequest.completedDate}">
-                                                            ${outboundRequest.completedDate.toLocalDate()} ${outboundRequest.completedDate.toLocalTime().toString().substring(0, 5)}
+                                                            <c:out value="${outboundRequest.completedDate.toLocalDate()}"/> <c:out value="${outboundRequest.completedDate.toLocalTime().toString().substring(0, 5)}"/>
                                                         </c:if>
                                                     </p>
                                                 </div>
@@ -280,15 +287,15 @@
                                                 <c:forEach var="item" items="${items}">
                                                     <tr>
                                                         <td>
-                                                            <strong>${requestScope['productName_'.concat(item.productId)]}</strong>
+                                                            <strong><c:out value="${requestScope['productName_'.concat(item.productId)]}"/></strong>
                                                             <br />
-                                                            <small class="text-muted">${requestScope['productSku_'.concat(item.productId)]}</small>
+                                                            <small class="text-muted"><c:out value="${requestScope['productSku_'.concat(item.productId)]}"/></small>
                                                         </td>
-                                                        <td class="text-center">${item.quantity}</td>
+                                                        <td class="text-center"><c:out value="${item.quantity}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></td>
                                                         <td class="text-center">
                                                             <c:choose>
                                                                 <c:when test="${outboundRequest.status == 'InProgress' || outboundRequest.status == 'Completed'}">
-                                                                    ${item.pickedQuantity}
+                                                                    <c:out value="${item.pickedQuantity != null ? item.pickedQuantity : 0}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span>
                                                                 </c:when>
                                                                 <c:otherwise>-</c:otherwise>
                                                             </c:choose>
@@ -297,13 +304,13 @@
                                                             <c:set var="available" value="${requestScope['available_'.concat(item.productId)]}" />
                                                             <c:choose>
                                                                 <c:when test="${available >= item.quantity}">
-                                                                    <span class="text-success">${available}</span>
+                                                                    <span class="text-success"><c:out value="${available}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></span>
                                                                 </c:when>
                                                                 <c:when test="${available > 0}">
-                                                                    <span class="text-warning">${available}</span>
+                                                                    <span class="text-warning"><c:out value="${available}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="text-danger">${available != null ? available : 0}</span>
+                                                                    <span class="text-danger"><c:out value="${available != null ? available : 0}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
@@ -349,7 +356,7 @@
                                                     </div>
                                                     <p class="mb-0 text-muted small">
                                                         <c:if test="${not empty outboundRequest.createdAt}">
-                                                            ${outboundRequest.createdAt.toLocalDate()}
+                                                            <c:out value="${outboundRequest.createdAt.toLocalDate()}"/>
                                                         </c:if>
                                                     </p>
                                                 </div>
@@ -367,7 +374,7 @@
                                                             </div>
                                                             <p class="mb-0 text-muted small">
                                                                 <c:if test="${not empty outboundRequest.rejectedDate}">
-                                                                    ${outboundRequest.rejectedDate.toLocalDate()}
+                                                                    <c:out value="${outboundRequest.rejectedDate.toLocalDate()}"/>
                                                                 </c:if>
                                                             </p>
                                                         </div>
@@ -385,7 +392,7 @@
                                                             <p class="mb-0 text-muted small">
                                                                 <c:choose>
                                                                     <c:when test="${not empty outboundRequest.approvedDate}">
-                                                                        ${outboundRequest.approvedDate.toLocalDate()}
+                                                                        <c:out value="${outboundRequest.approvedDate.toLocalDate()}"/>
                                                                     </c:when>
                                                                     <c:otherwise>Pending</c:otherwise>
                                                                 </c:choose>
@@ -422,7 +429,7 @@
                                                             <p class="mb-0 text-muted small">
                                                                 <c:choose>
                                                                     <c:when test="${not empty outboundRequest.completedDate}">
-                                                                        ${outboundRequest.completedDate.toLocalDate()}
+                                                                        <c:out value="${outboundRequest.completedDate.toLocalDate()}"/>
                                                                     </c:when>
                                                                     <c:otherwise>Pending</c:otherwise>
                                                                 </c:choose>
@@ -437,7 +444,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />
@@ -455,5 +462,36 @@
     <!-- / Layout wrapper -->
     
     <jsp:include page="/WEB-INF/common/scripts.jsp" />
+    
+    <!-- Reject Modal -->
+    <c:if test="${outboundRequest.status == 'Created'}">
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="${contextPath}/outbound" method="post">
+                    <input type="hidden" name="action" value="reject" />
+                    <input type="hidden" name="id" value="${outboundRequest.id}" />
+                    <div class="modal-header">
+                        <h5 class="modal-title">Reject Outbound Request</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="reason" class="form-label">Rejection Reason <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="reason" name="reason" rows="4" required
+                                      placeholder="Please provide a reason for rejection..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bx bx-x-circle me-1"></i>Reject
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    </c:if>
 </body>
 </html>
