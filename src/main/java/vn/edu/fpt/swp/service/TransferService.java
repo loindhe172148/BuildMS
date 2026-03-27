@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.*;
 import vn.edu.fpt.swp.model.*;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -137,6 +139,10 @@ public class TransferService {
      */
     public List<Request> getTransferRequestsByStatus(String status) {
         return requestDAO.findByTypeAndStatus("Transfer", status);
+    }
+
+    public PageResult<Request> getTransferRequestsPaginated(String status, Long warehouseId, PageRequest pageRequest) {
+        return requestDAO.searchPaginated("Transfer", status, warehouseId, pageRequest);
     }
     
     /**
@@ -305,30 +311,45 @@ public class TransferService {
                 continue;
             }
             
-            // Find inventory across locations at source warehouse
-            List<Inventory> inventories = inventoryDAO.findByProduct(item.getProductId());
             int remainingToDecrease = qtyToDecrease;
-            
-            for (Inventory inv : inventories) {
-                if (!inv.getWarehouseId().equals(sourceWarehouseId)) {
-                    continue; // Only from source warehouse
-                }
-                if (remainingToDecrease <= 0) {
-                    break;
-                }
-                
-                int available = inv.getQuantity();
-                int toDecrease = Math.min(available, remainingToDecrease);
-                
-                if (toDecrease > 0) {
+
+            // If a specific source location was chosen at creation time, deduct from it first
+            if (item.getSourceLocationId() != null) {
+                Inventory inv = inventoryDAO.findByProductAndLocation(
+                    item.getProductId(), sourceWarehouseId, item.getSourceLocationId());
+                if (inv != null && inv.getQuantity() > 0) {
+                    int toDecrease = Math.min(inv.getQuantity(), remainingToDecrease);
                     boolean decreased = inventoryDAO.decreaseQuantity(
-                        item.getProductId(),
-                        sourceWarehouseId,
-                        inv.getLocationId(),
-                        toDecrease
-                    );
+                        item.getProductId(), sourceWarehouseId, item.getSourceLocationId(), toDecrease);
                     if (decreased) {
                         remainingToDecrease -= toDecrease;
+                    }
+                }
+            }
+
+            // Fall back to any remaining locations at source warehouse
+            if (remainingToDecrease > 0) {
+                List<Inventory> inventories = inventoryDAO.findByProduct(item.getProductId());
+                for (Inventory inv : inventories) {
+                    if (!inv.getWarehouseId().equals(sourceWarehouseId)) {
+                        continue; // Only from source warehouse
+                    }
+                    // Skip the already-processed source location
+                    if (item.getSourceLocationId() != null
+                            && item.getSourceLocationId().equals(inv.getLocationId())) {
+                        continue;
+                    }
+                    if (remainingToDecrease <= 0) {
+                        break;
+                    }
+                    int available = inv.getQuantity();
+                    int toDecrease = Math.min(available, remainingToDecrease);
+                    if (toDecrease > 0) {
+                        boolean decreased = inventoryDAO.decreaseQuantity(
+                            item.getProductId(), sourceWarehouseId, inv.getLocationId(), toDecrease);
+                        if (decreased) {
+                            remainingToDecrease -= toDecrease;
+                        }
                     }
                 }
             }
@@ -444,30 +465,53 @@ public class TransferService {
     }
     
     /**
-     * Get products with inventory at a warehouse
+     * Get products with inventory at a warehouse, including per-location breakdown.
      * @param warehouseId Warehouse ID
-     * @return List of products with inventory info
+     * @return List of products with inventory info and location list
      */
     public List<Map<String, Object>> getProductsWithInventoryAtWarehouse(Long warehouseId) {
         List<Map<String, Object>> result = new ArrayList<>();
         List<Inventory> inventories = inventoryDAO.findByWarehouse(warehouseId);
-        
-        // Group by product
+
+        // Group by product: productId -> totalQty
         Map<Long, Integer> productQuantities = new HashMap<>();
+        // Group by product: productId -> list of location inventory rows
+        Map<Long, List<Inventory>> productLocationInventories = new HashMap<>();
+
         for (Inventory inv : inventories) {
+            if (inv.getQuantity() == null || inv.getQuantity() <= 0) continue;
             productQuantities.merge(inv.getProductId(), inv.getQuantity(), Integer::sum);
+            productLocationInventories
+                .computeIfAbsent(inv.getProductId(), k -> new ArrayList<>())
+                .add(inv);
         }
-        
+
         for (Map.Entry<Long, Integer> entry : productQuantities.entrySet()) {
             Product product = productDAO.findById(entry.getKey());
             if (product != null && product.isActive()) {
+                // Build per-location list for this product
+                List<Map<String, Object>> locationList = new ArrayList<>();
+                List<Inventory> locInvs = productLocationInventories.getOrDefault(entry.getKey(), new ArrayList<>());
+                for (Inventory inv : locInvs) {
+                    Location loc = locationDAO.findById(inv.getLocationId());
+                    if (loc != null && loc.isActive()) {
+                        Map<String, Object> locInfo = new HashMap<>();
+                        locInfo.put("locationId", inv.getLocationId());
+                        locInfo.put("locationCode", loc.getCode());
+                        locInfo.put("locationType", loc.getType());
+                        locInfo.put("quantity", inv.getQuantity());
+                        locationList.add(locInfo);
+                    }
+                }
+
                 Map<String, Object> item = new HashMap<>();
                 item.put("product", product);
                 item.put("totalQuantity", entry.getValue());
+                item.put("locations", locationList);
                 result.add(item);
             }
         }
-        
+
         return result;
     }
     

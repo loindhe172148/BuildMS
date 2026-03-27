@@ -1,4 +1,4 @@
- package vn.edu.fpt.swp.filter;
+package vn.edu.fpt.swp.filter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebFilter;

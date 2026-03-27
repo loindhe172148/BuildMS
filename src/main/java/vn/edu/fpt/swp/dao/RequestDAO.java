@@ -275,6 +275,83 @@ public class RequestDAO {
         return requests;
     }
 
+    /**
+     * Search transfer requests with creator-aware visibility:
+     * - A transfer in 'Created' status is only visible to the user who created it.
+     * - Once approved (Status != 'Created'), it becomes visible to all users
+     *   in the related warehouses (source or destination).
+     * - Admin (warehouseId = null, currentUserId = null) sees everything.
+     *
+     * @param status        Optional status filter
+     * @param warehouseId   The user's warehouse (null for Admin = see all)
+     * @param currentUserId The current user's ID for creator-based visibility
+     * @param pageRequest   Pagination parameters
+     * @return Paginated result of matching Transfer requests
+     */
+    public PageResult<Request> searchTransferPaginated(String status, Long warehouseId, Long currentUserId, PageRequest pageRequest) {
+        List<Request> requests = new ArrayList<>();
+
+        StringBuilder fromClause = new StringBuilder(" FROM Requests WHERE Type = 'Transfer' ");
+        List<Object> params = new ArrayList<>();
+
+        if (status != null && !status.trim().isEmpty()) {
+            fromClause.append("AND Status = ? ");
+            params.add(status.trim());
+        }
+
+        if (warehouseId != null && currentUserId != null) {
+            // Creator always sees their own transfers (any status).
+            // Others (same warehouse) only see it once it's been approved.
+            fromClause.append(
+                "AND (CreatedBy = ? " +
+                "OR (Status <> 'Created' AND (SourceWarehouseId = ? OR DestinationWarehouseId = ?))) ");
+            params.add(currentUserId);
+            params.add(warehouseId);
+            params.add(warehouseId);
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
+            "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
+            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
+            "Notes, Reason, CreatedAt" + fromClause +
+            "ORDER BY CreatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        requests.add(mapResultSetToRequest(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(requests, totalItems, pageRequest);
+    }
+
     public PageResult<Request> searchPaginated(String type, String status, Long warehouseId, PageRequest pageRequest) {
         List<Request> requests = new ArrayList<>();
 

@@ -465,6 +465,7 @@ public class OutboundController extends HttpServlet {
                 if (product != null) {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
+                    request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
                 }
                 if (warehouseId != null) {
                     int available = outboundService.getInventoryQuantity(item.getProductId(), warehouseId);
@@ -669,6 +670,7 @@ public class OutboundController extends HttpServlet {
                 if (product != null) {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
+                    request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
                 }
                 if (warehouseId != null) {
                     int available = outboundService.getInventoryQuantity(item.getProductId(), warehouseId);

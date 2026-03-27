@@ -8,11 +8,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.model.Warehouse;
+import vn.edu.fpt.swp.service.AuthService;
 import vn.edu.fpt.swp.service.UserService;
 import vn.edu.fpt.swp.service.WarehouseService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for User management
@@ -23,11 +29,13 @@ public class UserController extends HttpServlet {
     
     private UserService userService;
     private WarehouseService warehouseService;
+    private AuthService authService;
     
     @Override
     public void init() throws ServletException {
         userService = new UserService();
         warehouseService = new WarehouseService();
+        authService = new AuthService();
     }
     
     @Override
@@ -58,6 +66,9 @@ public class UserController extends HttpServlet {
             case "toggle":
                 toggleStatus(request, response);
                 break;
+            case "resetPassword":
+                showResetPasswordForm(request, response);
+                break;
             default:
                 showList(request, response);
         }
@@ -83,6 +94,9 @@ public class UserController extends HttpServlet {
             case "edit":
                 processEdit(request, response);
                 break;
+            case "resetPassword":
+                processResetPassword(request, response);
+                break;
             default:
                 response.sendRedirect(request.getContextPath() + "/user?action=list");
         }
@@ -107,44 +121,62 @@ public class UserController extends HttpServlet {
                 // Ignore invalid warehouse ID
             }
         }
-        
-        List<User> users;
-        
-        if ((keyword != null && !keyword.trim().isEmpty()) || 
-            (role != null && !role.trim().isEmpty()) ||
-            (status != null && !status.trim().isEmpty()) ||
-            warehouseId != null) {
-            users = userService.searchUsers(keyword, role, status, warehouseId);
-        } else {
-            users = userService.getAllUsers();
+
+        String selectedKeyword = keyword != null ? keyword.trim() : null;
+        String selectedRole = role != null ? role.trim() : null;
+        String selectedStatus = status != null ? status.trim() : null;
+        if (selectedKeyword != null && selectedKeyword.isEmpty()) {
+            selectedKeyword = null;
         }
+        if (selectedRole != null && selectedRole.isEmpty()) {
+            selectedRole = null;
+        }
+        if (selectedStatus != null && selectedStatus.isEmpty()) {
+            selectedStatus = null;
+        }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<User> userPage = userService.searchUsersPaginated(
+            selectedKeyword,
+            selectedRole,
+            selectedStatus,
+            warehouseId,
+            pageRequest
+        );
         
         // Get warehouses for filter dropdown and to display warehouse names
         List<Warehouse> warehouses = warehouseService.getAllWarehouses();
         
-        // Set warehouse names for each user
-        for (User user : users) {
-            if (user.getWarehouseId() != null) {
-                for (Warehouse wh : warehouses) {
-                    if (wh.getId() == user.getWarehouseId().intValue()) {
-                        request.setAttribute("warehouseName_" + user.getId(), wh.getName());
-                        break;
-                    }
-                }
-            }
+        // Build warehouse name map — single pass, no extra DB queries
+        java.util.Map<Long, String> warehouseMap = new java.util.HashMap<>();
+        for (Warehouse wh : warehouses) {
+            warehouseMap.put(wh.getId(), wh.getName());
         }
-        
+        request.setAttribute("warehouseMap", warehouseMap);
+
         // Get current user ID for highlighting
         User currentUser = getCurrentUser(request);
-        
-        request.setAttribute("users", users);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("role", selectedRole);
+        paginationParams.put("status", selectedStatus);
+        paginationParams.put("warehouseId", warehouseId != null ? String.valueOf(warehouseId) : null);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("users", userPage.getItems());
         request.setAttribute("warehouses", warehouses);
-        request.setAttribute("keyword", keyword);
-        request.setAttribute("role", role);
-        request.setAttribute("status", status);
+        request.setAttribute("keyword", selectedKeyword);
+        request.setAttribute("role", selectedRole);
+        request.setAttribute("status", selectedStatus);
         request.setAttribute("warehouseId", warehouseId);
         request.setAttribute("currentUserId", currentUser != null ? currentUser.getId() : null);
         request.setAttribute("roles", userService.getValidRoles());
+        request.setAttribute("currentPage", userPage.getCurrentPage());
+        request.setAttribute("totalPages", userPage.getTotalPages());
+        request.setAttribute("pageSize", userPage.getPageSize());
+        request.setAttribute("totalItems", userPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/user", paginationParams));
         
         request.getRequestDispatcher("/WEB-INF/views/user/list.jsp")
                .forward(request, response);
@@ -320,6 +352,7 @@ public class UserController extends HttpServlet {
                 request.setAttribute("user", user);
                 request.setAttribute("warehouses", warehouseService.getAllWarehouses());
                 request.setAttribute("roles", userService.getValidRoles());
+                request.setAttribute("isCurrentUser", currentUser != null && currentUser.getId().equals(id));
                 request.getRequestDispatcher("/WEB-INF/views/user/edit.jsp")
                        .forward(request, response);
             }
@@ -329,6 +362,7 @@ public class UserController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/user?action=list");
         } catch (IllegalArgumentException e) {
             Long id = Long.parseLong(idParam);
+            User currentUser2 = getCurrentUser(request);
             User user = userService.getUserById(id);
             request.setAttribute("errorMessage", e.getMessage());
             request.setAttribute("user", user);
@@ -339,6 +373,7 @@ public class UserController extends HttpServlet {
             request.setAttribute("warehouseId", warehouseId);
             request.setAttribute("warehouses", warehouseService.getAllWarehouses());
             request.setAttribute("roles", userService.getValidRoles());
+            request.setAttribute("isCurrentUser", currentUser2 != null && currentUser2.getId().equals(id));
             request.getRequestDispatcher("/WEB-INF/views/user/edit.jsp")
                    .forward(request, response);
         }
@@ -426,5 +461,85 @@ public class UserController extends HttpServlet {
         HttpSession session = request.getSession(false);
         if (session == null) return null;
         return (User) session.getAttribute("user");
+    }
+    
+    /**
+     * UC-AUTH-003: Show admin reset password form
+     */
+    private void showResetPasswordForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        String idParam = request.getParameter("id");
+        if (idParam == null || idParam.trim().isEmpty()) {
+            request.getSession().setAttribute("errorMessage", "User ID is required");
+            response.sendRedirect(request.getContextPath() + "/user?action=list");
+            return;
+        }
+        try {
+            Long id = Long.parseLong(idParam.trim());
+            User user = userService.getUserById(id);
+            if (user == null) {
+                request.getSession().setAttribute("errorMessage", "User not found");
+                response.sendRedirect(request.getContextPath() + "/user?action=list");
+                return;
+            }
+            request.setAttribute("targetUser", user);
+            request.getRequestDispatcher("/WEB-INF/views/user/reset-password.jsp").forward(request, response);
+        } catch (NumberFormatException e) {
+            request.getSession().setAttribute("errorMessage", "Invalid user ID");
+            response.sendRedirect(request.getContextPath() + "/user?action=list");
+        }
+    }
+    
+    /**
+     * UC-AUTH-003: Process admin reset password
+     */
+    private void processResetPassword(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        String idParam = request.getParameter("id");
+        String newPassword = request.getParameter("newPassword");
+        String confirmPassword = request.getParameter("confirmPassword");
+        
+        if (idParam == null || idParam.trim().isEmpty()) {
+            request.getSession().setAttribute("errorMessage", "User ID is required");
+            response.sendRedirect(request.getContextPath() + "/user?action=list");
+            return;
+        }
+        
+        try {
+            Long id = Long.parseLong(idParam.trim());
+            User user = userService.getUserById(id);
+            if (user == null) {
+                request.getSession().setAttribute("errorMessage", "User not found");
+                response.sendRedirect(request.getContextPath() + "/user?action=list");
+                return;
+            }
+            
+            // Validate passwords
+            if (newPassword == null || newPassword.length() < 6) {
+                request.setAttribute("errorMessage", "Password must be at least 6 characters");
+                request.setAttribute("targetUser", user);
+                request.getRequestDispatcher("/WEB-INF/views/user/reset-password.jsp").forward(request, response);
+                return;
+            }
+            
+            if (!newPassword.equals(confirmPassword)) {
+                request.setAttribute("errorMessage", "Passwords do not match");
+                request.setAttribute("targetUser", user);
+                request.getRequestDispatcher("/WEB-INF/views/user/reset-password.jsp").forward(request, response);
+                return;
+            }
+            
+            boolean success = authService.resetPassword(id, newPassword);
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Password reset successfully for " + user.getUsername());
+            } else {
+                request.getSession().setAttribute("errorMessage", "Failed to reset password");
+            }
+            response.sendRedirect(request.getContextPath() + "/user?action=edit&id=" + id);
+            
+        } catch (NumberFormatException e) {
+            request.getSession().setAttribute("errorMessage", "Invalid user ID");
+            response.sendRedirect(request.getContextPath() + "/user?action=list");
+        }
     }
 }

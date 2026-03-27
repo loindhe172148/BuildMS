@@ -54,7 +54,7 @@
                                         <c:if test="${not empty successMessage}">
                                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-check-circle me-2"></i>
-                                                ${successMessage}
+                                                <c:out value="${successMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -63,7 +63,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -147,7 +147,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

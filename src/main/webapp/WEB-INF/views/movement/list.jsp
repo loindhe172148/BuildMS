@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
 
@@ -49,7 +50,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -58,7 +59,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -69,9 +70,11 @@
                             <h4 class="mb-0">
                                 <i class="bx bx-transfer me-2"></i>Internal Movements
                             </h4>
-                            <a href="${contextPath}/movement?action=create" class="btn btn-primary">
-                                <i class="bx bx-plus me-1"></i>Create Movement
-                            </a>
+                            <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff'}">
+                                <a href="${contextPath}/movement?action=create" class="btn btn-primary">
+                                    <i class="bx bx-plus me-1"></i>Create Movement
+                                </a>
+                            </c:if>
                         </div>
                         
                         <!-- Filters Card -->
@@ -84,20 +87,20 @@
                                     <div class="col-md-4">
                                         <select class="form-select" name="status">
                                             <option value="">All Status</option>
-                                            <option value="Created" ${selectedStatus == 'Created' ? 'selected' : ''}>Created</option>
-                                            <option value="InProgress" ${selectedStatus == 'InProgress' ? 'selected' : ''}>In Progress</option>
-                                            <option value="Completed" ${selectedStatus == 'Completed' ? 'selected' : ''}>Completed</option>
+                                            <option value="Created" <c:out value="${selectedStatus == 'Created' ? 'selected' : ''}"/>>Created</option>
+                                            <option value="InProgress" <c:out value="${selectedStatus == 'InProgress' ? 'selected' : ''}"/>>In Progress</option>
+                                            <option value="Completed" <c:out value="${selectedStatus == 'Completed' ? 'selected' : ''}"/>>Completed</option>
                                         </select>
                                     </div>
                                     
                                     <!-- Filter by Warehouse -->
-                                    <c:if test="${not isStaff}">
+                                    <c:if test="${not isWarehouseScoped}">
                                         <div class="col-md-4">
                                             <select class="form-select" name="warehouseId">
                                                 <option value="">All Warehouses</option>
                                                 <c:forEach var="wh" items="${warehouses}">
-                                                    <option value="${wh.id}" ${selectedWarehouseId == wh.id ? 'selected' : ''}>
-                                                        ${wh.name}
+                                                    <option value="<c:out value='${wh.id}'/>" <c:out value="${selectedWarehouseId == wh.id ? 'selected' : ''}"/>>
+                                                        <c:out value="${wh.name}"/>
                                                     </option>
                                                 </c:forEach>
                                             </select>
@@ -120,7 +123,7 @@
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Movement Requests</h5>
-                                <span class="badge bg-primary">${requests.size()} total</span>
+                                <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
@@ -147,15 +150,16 @@
                                             <c:otherwise>
                                                 <c:forEach var="req" items="${requests}">
                                                     <tr>
-                                                        <td><strong>#${req.id}</strong></td>
+                                                        <td><strong>#<c:out value="${req.id}"/></strong></td>
                                                         <td>
                                                             <i class="bx bx-building-house me-1 text-muted"></i>
-                                                            ${requestScope["warehouseName_".concat(req.sourceWarehouseId)]}
+                                                            <c:out value="${warehouseMap[req.sourceWarehouseId]}"/>
                                                         </td>
-                                                        <td>${requestScope["userName_".concat(req.createdBy)]}</td>
+                                                        <td><c:out value="${userMap[req.createdBy]}"/></td>
                                                         <td>
-                                                            <fmt:parseDate value="${req.createdAt}" pattern="yyyy-MM-dd'T'HH:mm" var="parsedDate" type="both" />
-                                                            <fmt:formatDate value="${parsedDate}" pattern="yyyy-MM-dd HH:mm" />
+                                                            <c:if test="${not empty req.createdAt}">
+                                                                <c:out value="${req.createdAt.toLocalDate()}"/> <c:out value="${req.createdAt.toLocalTime().toString().substring(0, 5)}"/>
+                                                            </c:if>
                                                         </td>
                                                         <td>
                                                             <c:choose>
@@ -169,7 +173,7 @@
                                                                     <span class="badge bg-success">Completed</span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="badge bg-secondary">${req.status}</span>
+                                                                    <span class="badge bg-secondary"><c:out value="${req.status}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
@@ -192,9 +196,16 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="card-footer">
+                                <jsp:include page="/WEB-INF/common/pagination.jsp">
+                                    <jsp:param name="currentPage" value="${currentPage}" />
+                                    <jsp:param name="totalPages" value="${totalPages}" />
+                                    <jsp:param name="baseUrl" value="${paginationBaseUrl}" />
+                                </jsp:include>
+                            </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />

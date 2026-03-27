@@ -117,7 +117,7 @@
                         <c:if test="${not empty errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2" aria-hidden="true"></i>
-                                ${errorMessage}
+                                <c:out value="${errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                         </c:if>
@@ -132,7 +132,7 @@
                                        class="form-control" 
                                        id="username" 
                                        name="username" 
-                                       value="${username}"
+                                       value="<c:out value='${username}'/>"
                                        placeholder="Enter your username or email" 
                                        autofocus 
                                        required />

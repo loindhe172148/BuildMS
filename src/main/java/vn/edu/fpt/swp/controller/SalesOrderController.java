@@ -1,497 +1,507 @@
-package vn.edu.fpt.swp.service;
+package vn.edu.fpt.swp.controller;
 
-import vn.edu.fpt.swp.dao.*;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.*;
+import vn.edu.fpt.swp.service.SalesOrderService;
 import vn.edu.fpt.swp.util.PageRequest;
 import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Service layer for Outbound Request Management
+ * Controller for Sales Order Management
  * 
- * UC-OUT-001: Approve Outbound Request
- * UC-OUT-002: Execute Outbound Request
- * UC-OUT-003: Create Internal Outbound Request
+ * UC-SO-001: Create Sales Order
+ * UC-SO-002: Confirm Sales Order
+ * UC-SO-003: Generate Outbound Request from Sales Order
+ * UC-SO-004: Cancel Sales Order
  */
-public class OutboundService {
+@WebServlet("/sales-order")
+public class SalesOrderController extends HttpServlet {
     
-    private RequestDAO requestDAO;
-    private RequestItemDAO requestItemDAO;
-    private InventoryDAO inventoryDAO;
-    private ProductDAO productDAO;
-    private WarehouseDAO warehouseDAO;
-    private LocationDAO locationDAO;
-    private UserDAO userDAO;
-    private SalesOrderDAO salesOrderDAO;
-    private SalesOrderItemDAO salesOrderItemDAO;
+    private SalesOrderService salesOrderService;
     
-    // Valid outbound reasons for internal requests
-    private static final List<String> VALID_REASONS = Arrays.asList(
-        "Damage/Disposal",
-        "Return to Supplier", 
-        "Sample/Demo",
-        "Adjustment",
-        "Other"
-    );
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        salesOrderService = new SalesOrderService();
+    }
     
-    public OutboundService() {
-        this.requestDAO = new RequestDAO();
-        this.requestItemDAO = new RequestItemDAO();
-        this.inventoryDAO = new InventoryDAO();
-        this.productDAO = new ProductDAO();
-        this.warehouseDAO = new WarehouseDAO();
-        this.locationDAO = new LocationDAO();
-        this.userDAO = new UserDAO();
-        this.salesOrderDAO = new SalesOrderDAO();
-        this.salesOrderItemDAO = new SalesOrderItemDAO();
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        String action = request.getParameter("action");
+        
+        if (action == null || action.isEmpty()) {
+            action = "list";
+        }
+        
+        switch (action) {
+            case "list":
+                listOrders(request, response);
+                break;
+            case "create":
+                showCreateForm(request, response);
+                break;
+            case "view":
+                viewOrder(request, response);
+                break;
+            case "generate-outbound":
+                showGenerateOutboundForm(request, response);
+                break;
+            case "cancel":
+                showCancelForm(request, response);
+                break;
+            default:
+                listOrders(request, response);
+        }
+    }
+    
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        String action = request.getParameter("action");
+        
+        if (action == null || action.isEmpty()) {
+            response.sendRedirect(request.getContextPath() + "/sales-order");
+            return;
+        }
+        
+        switch (action) {
+            case "create":
+                createOrder(request, response);
+                break;
+            case "confirm":
+                confirmOrder(request, response);
+                break;
+            case "generate-outbound":
+                generateOutbound(request, response);
+                break;
+            case "cancel":
+                cancelOrder(request, response);
+                break;
+            default:
+                response.sendRedirect(request.getContextPath() + "/sales-order");
+        }
     }
     
     /**
-     * UC-OUT-003: Create an internal outbound request
-     * @param request Request header information
-     * @param items List of request items
-     * @return Created request with ID, null if failed
+     * List all sales orders with optional status filter
      */
-    public Request createInternalOutboundRequest(Request request, List<RequestItem> items) {
-        // Validation
-        if (request == null || items == null || items.isEmpty()) {
-            return null;
+    private void listOrders(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        String status = request.getParameter("status");
+
+        String selectedStatus = status != null ? status.trim() : null;
+        if (selectedStatus != null && selectedStatus.isEmpty()) {
+            selectedStatus = null;
+        }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<SalesOrder> orderPage = salesOrderService.getSalesOrdersPaginated(selectedStatus, pageRequest);
+        List<SalesOrder> orders = orderPage.getItems();
+        
+        // Build lookup maps once — avoids N+1 DB calls per order
+        java.util.Map<Long, Customer> customerMap = new java.util.HashMap<>();
+        for (Customer c : salesOrderService.getAllCustomers()) {
+            customerMap.put(c.getId(), c);
+        }
+        java.util.Map<Long, User> userMap = new java.util.HashMap<>();
+        for (User u : salesOrderService.getAllUsers()) {
+            userMap.put(u.getId(), u);
+        }
+
+        // Enrich with customer info
+        List<Map<String, Object>> ordersWithDetails = new ArrayList<>();
+        for (SalesOrder order : orders) {
+            Map<String, Object> orderData = new HashMap<>();
+            orderData.put("order", order);
+            orderData.put("customer", customerMap.get(order.getCustomerId()));
+            orderData.put("creator", userMap.get(order.getCreatedBy()));
+            ordersWithDetails.add(orderData);
         }
         
-        // Validate source warehouse
-        if (request.getSourceWarehouseId() == null) {
-            return null;
-        }
+        request.setAttribute("orders", ordersWithDetails);
+        request.setAttribute("selectedStatus", selectedStatus);
+        request.setAttribute("currentPage", orderPage.getCurrentPage());
+        request.setAttribute("totalPages", orderPage.getTotalPages());
+        request.setAttribute("pageSize", orderPage.getPageSize());
+        request.setAttribute("totalItems", orderPage.getTotalItems());
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("status", selectedStatus);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/sales-order", paginationParams));
         
-        Warehouse warehouse = warehouseDAO.findById(request.getSourceWarehouseId());
-        if (warehouse == null) {
-            return null;
-        }
+        request.getRequestDispatcher("/WEB-INF/views/sales-order/list.jsp")
+               .forward(request, response);
+    }
+    
+    /**
+     * UC-SO-001: Show create order form
+     */
+    private void showCreateForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
         
-        // Validate reason
-        if (request.getReason() == null || request.getReason().trim().isEmpty()) {
-            return null;
+        // Get active customers
+        List<Customer> customers = salesOrderService.getActiveCustomers();
+        if (customers.isEmpty()) {
+            request.setAttribute("errorMessage", "No customers available. Please create a customer first.");
         }
+        request.setAttribute("customers", customers);
         
-        if (!VALID_REASONS.contains(request.getReason())) {
-            return null;
-        }
+        // Get active products
+        List<Product> products = salesOrderService.getActiveProducts();
+        request.setAttribute("products", products);
         
-        // If "Other" reason, notes/description is required
-        if ("Other".equals(request.getReason()) && 
-            (request.getNotes() == null || request.getNotes().trim().isEmpty())) {
-            return null;
-        }
+        request.getRequestDispatcher("/WEB-INF/views/sales-order/create.jsp")
+               .forward(request, response);
+    }
+    
+    /**
+     * UC-SO-001: Create sales order
+     */
+    private void createOrder(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
         
-        // Validate items
-        List<Long> productIds = new ArrayList<>();
-        for (RequestItem item : items) {
-            if (item.getProductId() == null) {
-                return null; // Product required
-            }
-            if (item.getQuantity() == null || item.getQuantity() <= 0) {
-                return null; // Quantity must be positive
-            }
-            if (productIds.contains(item.getProductId())) {
-                return null; // Duplicate product
-            }
-            productIds.add(item.getProductId());
+        try {
+            // Parse customer ID
+            Long customerId = Long.parseLong(request.getParameter("customerId"));
             
-            // Verify product is active
-            Product product = productDAO.findById(item.getProductId());
-            if (product == null || !product.isActive()) {
-                return null; // Invalid or inactive product
-            }
-        }
-        
-        // Set request type and status
-        request.setType("Outbound");
-        request.setStatus("Created");
-        
-        // Create request
-        Request createdRequest = requestDAO.create(request);
-        if (createdRequest == null) {
-            return null;
-        }
-        
-        // Create request items
-        for (RequestItem item : items) {
-            item.setRequestId(createdRequest.getId());
-        }
-        
-        boolean itemsCreated = requestItemDAO.createBatch(items);
-        if (!itemsCreated) {
-            return null;
-        }
-        
-        return createdRequest;
-    }
-    
-    /**
-     * UC-OUT-001: Approve an outbound request
-     * @param requestId Request ID to approve
-     * @param approverId User ID of approver
-     * @return true if successful
-     */
-    public boolean approveRequest(Long requestId, Long approverId) {
-        if (requestId == null || approverId == null) {
-            return false;
-        }
-        
-        // Verify request exists and is in Created status
-        Request request = requestDAO.findById(requestId);
-        if (request == null || !"Created".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
-            return false;
-        }
-        
-        return requestDAO.approve(requestId, approverId);
-    }
-    
-    /**
-     * UC-OUT-001: Reject an outbound request
-     * @param requestId Request ID to reject
-     * @param rejectorId User ID of rejector
-     * @param reason Rejection reason (required)
-     * @return true if successful
-     */
-    public boolean rejectRequest(Long requestId, Long rejectorId, String reason) {
-        if (requestId == null || rejectorId == null || reason == null || reason.trim().isEmpty()) {
-            return false;
-        }
-        
-        // Verify request exists and is in Created status
-        Request request = requestDAO.findById(requestId);
-        if (request == null || !"Created".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
-            return false;
-        }
-        
-        boolean rejected = requestDAO.reject(requestId, rejectorId, reason);
-        
-        // If outbound is linked to a sales order, revert SO status to Confirmed
-        if (rejected && request.getSalesOrderId() != null) {
-            salesOrderDAO.updateStatus(request.getSalesOrderId(), "Confirmed");
-        }
-        
-        return rejected;
-    }
-    
-    /**
-     * UC-OUT-002: Start execution of an approved outbound request
-     * @param requestId Request ID
-     * @return true if successful
-     */
-    public boolean startExecution(Long requestId) {
-        if (requestId == null) {
-            return false;
-        }
-        
-        // Verify request exists and is Approved
-        Request request = requestDAO.findById(requestId);
-        if (request == null || !"Approved".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
-            return false;
-        }
-        
-        return requestDAO.startExecution(requestId);
-    }
-    
-    /**
-     * UC-OUT-002: Update picked quantities for items
-     * @param requestId Request ID
-     * @param productId Product ID
-     * @param pickedQuantity Actual picked quantity
-     * @return true if successful
-     */
-    public boolean updatePickedQuantity(Long requestId, Long productId, Integer pickedQuantity) {
-        if (requestId == null || productId == null || pickedQuantity == null || pickedQuantity < 0) {
-            return false;
-        }
-        
-        // Verify request is InProgress
-        Request request = requestDAO.findById(requestId);
-        if (request == null || !"InProgress".equals(request.getStatus())) {
-            return false;
-        }
-        
-        // Get existing item to add to current picked quantity
-        RequestItem existingItem = requestItemDAO.findByRequestAndProduct(requestId, productId);
-        if (existingItem == null) {
-            return false;
-        }
-        
-        int currentPicked = existingItem.getPickedQuantity() != null ? existingItem.getPickedQuantity() : 0;
-        int newTotal = currentPicked + pickedQuantity;
-        
-        // Cannot exceed requested quantity
-        if (newTotal > existingItem.getQuantity()) {
-            return false;
-        }
-        
-        // Verify picked quantity doesn't exceed available inventory
-        Long warehouseId = request.getSourceWarehouseId();
-        if (warehouseId != null) {
-            int available = inventoryDAO.getTotalQuantityByProductAndWarehouse(productId, warehouseId);
-            if (pickedQuantity > available) {
-                return false; // Cannot pick more than available
-            }
-        }
-        
-        return requestItemDAO.updatePickedQuantity(requestId, productId, newTotal);
-    }
-    
-    /**
-     * UC-OUT-002: Complete outbound request execution
-     * @param requestId Request ID
-     * @param completedBy User ID who completed
-     * @return true if successful
-     */
-    public boolean completeExecution(Long requestId, Long completedBy) {
-        if (requestId == null || completedBy == null) {
-            return false;
-        }
-        
-        // Verify request is InProgress
-        Request request = requestDAO.findById(requestId);
-        if (request == null || !"InProgress".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
-            return false;
-        }
-        
-        // Get all items
-        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
-        if (items.isEmpty()) {
-            return false;
-        }
-        
-        // Get source warehouse
-        Long warehouseId = request.getSourceWarehouseId();
-        if (warehouseId == null) {
-            return false;
-        }
-        
-        // Update inventory for each item (decrease)
-        for (RequestItem item : items) {
-            Integer pickedQty = item.getPickedQuantity();
-            if (pickedQty == null || pickedQty <= 0) {
-                continue; // Skip items with no picked quantity
+            // Parse order items
+            String[] productIds = request.getParameterValues("productId[]");
+            String[] quantities = request.getParameterValues("quantity[]");
+            
+            if (productIds == null || productIds.length == 0) {
+                request.setAttribute("errorMessage", "At least one item is required");
+                showCreateForm(request, response);
+                return;
             }
             
-            // Find inventory record to decrease - take from first available location
-            List<Inventory> inventories = inventoryDAO.findByProduct(item.getProductId());
-            int remainingToDecrease = pickedQty;
-            
-            for (Inventory inv : inventories) {
-                if (!inv.getWarehouseId().equals(warehouseId)) {
-                    continue; // Only from source warehouse
+            // Build items list
+            List<SalesOrderItem> items = new ArrayList<>();
+            for (int i = 0; i < productIds.length; i++) {
+                if (productIds[i] != null && !productIds[i].isEmpty()) {
+                    SalesOrderItem item = new SalesOrderItem();
+                    item.setProductId(Long.parseLong(productIds[i]));
+                    item.setQuantity(Integer.parseInt(quantities[i]));
+                    items.add(item);
                 }
-                
-                if (remainingToDecrease <= 0) {
-                    break;
+            }
+            
+            if (items.isEmpty()) {
+                request.setAttribute("errorMessage", "At least one item is required");
+                showCreateForm(request, response);
+                return;
+            }
+            
+            // Create order
+            SalesOrder order = new SalesOrder();
+            order.setCustomerId(customerId);
+            order.setCreatedBy(currentUser.getId());
+            
+            // Parse optional fields: orderDate, requiredDeliveryDate, notes
+            String orderDateStr = request.getParameter("orderDate");
+            if (orderDateStr != null && !orderDateStr.trim().isEmpty()) {
+                try {
+                    order.setOrderDate(LocalDateTime.parse(orderDateStr + "T00:00:00"));
+                } catch (DateTimeParseException ex) {
+                    // Ignore parse error, leave null (defaults to now in DB)
                 }
-                
-                int available = inv.getQuantity();
-                int toDecrease = Math.min(available, remainingToDecrease);
-                
-                if (toDecrease > 0) {
-                    boolean decreased = inventoryDAO.decreaseQuantity(
-                        item.getProductId(), 
-                        warehouseId, 
-                        inv.getLocationId(), 
-                        toDecrease
-                    );
-                    
-                    if (decreased) {
-                        remainingToDecrease -= toDecrease;
+            }
+            
+            String deliveryDateStr = request.getParameter("requiredDeliveryDate");
+            if (deliveryDateStr != null && !deliveryDateStr.trim().isEmpty()) {
+                try {
+                    order.setRequiredDeliveryDate(LocalDateTime.parse(deliveryDateStr + "T00:00:00"));
+                } catch (DateTimeParseException ex) {
+                    // Ignore parse error, leave null
+                }
+            }
+            
+            String notes = request.getParameter("notes");
+            if (notes != null && !notes.trim().isEmpty()) {
+                order.setNotes(notes.trim());
+            }
+            
+            SalesOrder createdOrder = salesOrderService.createSalesOrder(order, items);
+            
+            if (createdOrder != null) {
+                request.getSession().setAttribute("successMessage", 
+                    "Sales Order " + createdOrder.getOrderNo() + " created successfully");
+                response.sendRedirect(request.getContextPath() + 
+                    "/sales-order?action=view&id=" + createdOrder.getId());
+            } else {
+                request.setAttribute("errorMessage", "Failed to create sales order. Please check your inputs.");
+                showCreateForm(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid input format");
+            showCreateForm(request, response);
+        }
+    }
+    
+    /**
+     * View order details
+     */
+    private void viewOrder(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            
+            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
+            if (order == null) {
+                request.setAttribute("errorMessage", "Sales order not found");
+                listOrders(request, response);
+                return;
+            }
+            
+            // Get related info
+            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
+            User creator = salesOrderService.getUserById(order.getCreatedBy());
+            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
+            List<Request> relatedRequests = salesOrderService.getRelatedRequests(orderId);
+            
+            request.setAttribute("order", order);
+            request.setAttribute("customer", customer);
+            request.setAttribute("creator", creator);
+            request.setAttribute("items", items);
+            request.setAttribute("relatedRequests", relatedRequests);
+            
+            // Consume flash message from session
+            HttpSession viewSession = request.getSession(false);
+            if (viewSession != null) {
+                String flashMsg = (String) viewSession.getAttribute("successMessage");
+                if (flashMsg != null) {
+                    request.setAttribute("successMessage", flashMsg);
+                    viewSession.removeAttribute("successMessage");
+                }
+            }
+            
+            request.getRequestDispatcher("/WEB-INF/views/sales-order/view.jsp")
+                   .forward(request, response);
+                   
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid order ID");
+            listOrders(request, response);
+        }
+    }
+    
+    /**
+     * UC-SO-002: Confirm sales order
+     */
+    private void confirmOrder(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            
+            boolean success = salesOrderService.confirmOrder(orderId, currentUser.getId());
+            
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Sales order confirmed successfully");
+                response.sendRedirect(request.getContextPath() + 
+                    "/sales-order?action=view&id=" + orderId);
+            } else {
+                request.setAttribute("errorMessage", "Failed to confirm order. Order must be in Draft status.");
+                viewOrder(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid order ID");
+            listOrders(request, response);
+        }
+    }
+    
+    /**
+     * UC-SO-003: Show generate outbound form
+     */
+    private void showGenerateOutboundForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Sales/Manager/Admin can generate outbound
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales and Managers can generate outbound requests");
+            listOrders(request, response);
+            return;
+        }
+        
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            
+            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
+            if (order == null || !"Confirmed".equals(order.getStatus())) {
+                request.setAttribute("errorMessage", "Order must be in Confirmed status");
+                listOrders(request, response);
+                return;
+            }
+            
+            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
+            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
+            List<Warehouse> warehouses = salesOrderService.getAllWarehouses();
+            
+            request.setAttribute("order", order);
+            request.setAttribute("customer", customer);
+            request.setAttribute("items", items);
+            request.setAttribute("warehouses", warehouses);
+            
+            // If warehouse selected, check availability
+            String warehouseIdStr = request.getParameter("warehouseId");
+            if (warehouseIdStr != null && !warehouseIdStr.isEmpty()) {
+                Long warehouseId = Long.parseLong(warehouseIdStr);
+                List<Map<String, Object>> availability = 
+                    salesOrderService.checkInventoryAvailability(orderId, warehouseId);
+                request.setAttribute("availability", availability);
+                request.setAttribute("selectedWarehouseId", warehouseId);
+            }
+            
+            request.getRequestDispatcher("/WEB-INF/views/sales-order/generate-outbound.jsp")
+                   .forward(request, response);
+                   
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid order ID");
+            listOrders(request, response);
+        }
+    }
+    
+    /**
+     * UC-SO-003: Generate outbound request
+     */
+    private void generateOutbound(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Sales/Manager/Admin can generate outbound
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales and Managers can generate outbound requests");
+            listOrders(request, response);
+            return;
+        }
+        
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            Long warehouseId = Long.parseLong(request.getParameter("warehouseId"));
+            
+            // Parse quantities (optional custom quantities)
+            Map<Long, Integer> quantities = new HashMap<>();
+            String[] productIds = request.getParameterValues("productId[]");
+            String[] qtyValues = request.getParameterValues("fulfillQuantity[]");
+            
+            if (productIds != null && qtyValues != null) {
+                for (int i = 0; i < productIds.length; i++) {
+                    Long productId = Long.parseLong(productIds[i]);
+                    Integer qty = Integer.parseInt(qtyValues[i]);
+                    if (qty > 0) {
+                        quantities.put(productId, qty);
                     }
                 }
             }
             
-            if (remainingToDecrease > 0) {
-                // Not enough inventory - but continue anyway (discrepancy logged)
-            }
-        }
-        
-        // Mark request as completed
-        boolean completed = requestDAO.complete(requestId, completedBy);
-        
-        // If outbound is linked to a sales order, update SO fulfillment tracking
-        if (completed && request.getSalesOrderId() != null) {
-            Long salesOrderId = request.getSalesOrderId();
+            Request outboundRequest = salesOrderService.generateOutboundRequest(
+                orderId, warehouseId, currentUser.getId(), 
+                quantities.isEmpty() ? null : quantities);
             
-            // Update fulfilled quantities on SO items
-            for (RequestItem item : items) {
-                Integer pickedQty = item.getPickedQuantity();
-                if (pickedQty != null && pickedQty > 0) {
-                    SalesOrderItem soItem = salesOrderItemDAO.findByOrderAndProduct(salesOrderId, item.getProductId());
-                    if (soItem != null) {
-                        int newFulfilled = soItem.getFulfilledQuantity() + pickedQty;
-                        salesOrderItemDAO.updateFulfilledQuantity(salesOrderId, item.getProductId(), newFulfilled);
-                    }
-                }
+            if (outboundRequest != null) {
+                request.getSession().setAttribute("successMessage", 
+                    "Outbound request " + outboundRequest.getId() + " generated successfully");
+                response.sendRedirect(request.getContextPath() + 
+                    "/sales-order?action=view&id=" + orderId);
+            } else {
+                request.setAttribute("errorMessage", "Failed to generate outbound request");
+                showGenerateOutboundForm(request, response);
             }
             
-            // Check if all SO items are fully fulfilled
-            List<SalesOrderItem> soItems = salesOrderItemDAO.findBySalesOrderId(salesOrderId);
-            boolean allFulfilled = true;
-            for (SalesOrderItem soItem : soItems) {
-                // Re-read to get updated fulfilled qty
-                SalesOrderItem refreshed = salesOrderItemDAO.findByOrderAndProduct(salesOrderId, soItem.getProductId());
-                if (refreshed.getRemainingQuantity() > 0) {
-                    allFulfilled = false;
-                    break;
-                }
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid input");
+            listOrders(request, response);
+        }
+    }
+    
+    /**
+     * UC-SO-004: Show cancel order form
+     */
+    private void showCancelForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            
+            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
+            if (order == null) {
+                request.setAttribute("errorMessage", "Sales order not found");
+                listOrders(request, response);
+                return;
             }
             
-            if (allFulfilled) {
-                salesOrderDAO.markCompleted(salesOrderId);
-            }
+            Map<String, Object> cancellationStatus = salesOrderService.checkCancellationStatus(orderId);
+            
+            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
+            
+            request.setAttribute("order", order);
+            request.setAttribute("customer", customer);
+            request.setAttribute("cancellationStatus", cancellationStatus);
+            
+            request.getRequestDispatcher("/WEB-INF/views/sales-order/cancel.jsp")
+                   .forward(request, response);
+                   
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid order ID");
+            listOrders(request, response);
         }
+    }
+    
+    /**
+     * UC-SO-004: Cancel sales order
+     */
+    private void cancelOrder(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
         
-        return completed;
-    }
-    
-    /**
-     * Get all outbound requests
-     * @return List of outbound requests
-     */
-    public List<Request> getAllOutboundRequests() {
-        return requestDAO.findByType("Outbound");
-    }
-    
-    /**
-     * Get outbound requests by status
-     * @param status Request status
-     * @return List of matching requests
-     */
-    public List<Request> getOutboundRequestsByStatus(String status) {
-        return requestDAO.findByTypeAndStatus("Outbound", status);
-    }
-    
-    /**
-     * Search outbound requests with filters
-     * @param status Status filter
-     * @param warehouseId Warehouse filter
-     * @return List of matching requests
-     */
-    public List<Request> searchOutboundRequests(String status, Long warehouseId) {
-        return requestDAO.search("Outbound", status, warehouseId);
-    }
-
-    public PageResult<Request> searchOutboundRequestsPaginated(String status, Long warehouseId, PageRequest pageRequest) {
-        return requestDAO.searchPaginated("Outbound", status, warehouseId, pageRequest);
-    }
-    
-    /**
-     * Get request by ID
-     * @param requestId Request ID
-     * @return Request if found and is Outbound type
-     */
-    public Request getRequestById(Long requestId) {
-        Request request = requestDAO.findById(requestId);
-        if (request != null && "Outbound".equals(request.getType())) {
-            return request;
+        try {
+            Long orderId = Long.parseLong(request.getParameter("id"));
+            String reason = request.getParameter("reason");
+            
+            if (reason == null || reason.trim().isEmpty()) {
+                request.setAttribute("errorMessage", "Cancellation reason is required");
+                showCancelForm(request, response);
+                return;
+            }
+            
+            boolean success = salesOrderService.cancelOrder(orderId, currentUser.getId(), reason);
+            
+            if (success) {
+                response.sendRedirect(request.getContextPath() + 
+                    "/sales-order?success=Sales order cancelled successfully");
+            } else {
+                request.setAttribute("errorMessage", "Failed to cancel order");
+                showCancelForm(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid order ID");
+            listOrders(request, response);
         }
-        return null;
-    }
-    
-    /**
-     * Get items for a request
-     * @param requestId Request ID
-     * @return List of request items
-     */
-    public List<RequestItem> getRequestItems(Long requestId) {
-        return requestItemDAO.findByRequestId(requestId);
-    }
-    
-    /**
-     * Get inventory quantity for a product in a warehouse
-     * @param productId Product ID
-     * @param warehouseId Warehouse ID
-     * @return Total quantity available
-     */
-    public int getInventoryQuantity(Long productId, Long warehouseId) {
-        return inventoryDAO.getTotalQuantityByProductAndWarehouse(productId, warehouseId);
-    }
-    
-    /**
-     * Get user by ID (for display)
-     * @param userId User ID
-     * @return User if found
-     */
-    public User getUserById(Long userId) {
-        return userDAO.findById(userId);
-    }
-    
-    /**
-     * Get warehouse by ID
-     * @param warehouseId Warehouse ID
-     * @return Warehouse if found
-     */
-    public Warehouse getWarehouseById(Long warehouseId) {
-        return warehouseDAO.findById(warehouseId);
-    }
-    
-    /**
-     * Get product by ID
-     * @param productId Product ID
-     * @return Product if found
-     */
-    public Product getProductById(Long productId) {
-        return productDAO.findById(productId);
-    }
-    
-    /**
-     * Get all warehouses
-     * @return List of all warehouses
-     */
-    public List<Warehouse> getAllWarehouses() {
-        return warehouseDAO.getAll();
-    }
-
-    /**
-     * Get all users — used for batch display on the list page.
-     * @return List of all users
-     */
-    public List<User> getAllUsers() {
-        return userDAO.getAll();
-    }
-    
-    /**
-     * Get all active products
-     * @return List of active products
-     */
-    public List<Product> getActiveProducts() {
-        return productDAO.getActive();
-    }
-    
-    /**
-     * Get locations for a warehouse
-     * @param warehouseId Warehouse ID
-     * @return List of locations
-     */
-    public List<Location> getWarehouseLocations(Long warehouseId) {
-        return locationDAO.findByWarehouse(warehouseId);
-    }
-    
-    /**
-     * Get valid outbound reasons
-     * @return List of valid reasons
-     */
-    public List<String> getValidReasons() {
-        return new ArrayList<>(VALID_REASONS);
-    }
-    
-    /**
-     * Update notes on a request (e.g. dispatch/shipping info)
-     * @param requestId Request ID
-     * @param notes New notes text
-     * @return true if successful
-     */
-    public boolean updateRequestNotes(Long requestId, String notes) {
-        if (requestId == null) {
-            return false;
-        }
-        return requestDAO.updateNotes(requestId, notes);
     }
 }

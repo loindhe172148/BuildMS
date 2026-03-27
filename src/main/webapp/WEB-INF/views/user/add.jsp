@@ -72,7 +72,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -90,7 +90,7 @@
                                                     </label>
                                                     <input type="text" class="form-control" id="username" name="username" 
                                                            placeholder="Enter username" 
-                                                           value="${username}" 
+                                                           value="<c:out value='${username}'/>" 
                                                            maxlength="100" 
                                                            required />
                                                 </div>
@@ -100,7 +100,7 @@
                                                     </label>
                                                     <input type="email" class="form-control" id="email" name="email" 
                                                            placeholder="Enter email address" 
-                                                           value="${email}" 
+                                                           value="<c:out value='${email}'/>" 
                                                            maxlength="255" 
                                                            required />
                                                 </div>
@@ -137,7 +137,7 @@
                                                 </label>
                                                 <input type="text" class="form-control" id="name" name="name" 
                                                        placeholder="Enter full name" 
-                                                       value="${name}" 
+                                                       value="<c:out value='${name}'/>" 
                                                        maxlength="255" 
                                                        required />
                                             </div>
@@ -155,7 +155,7 @@
                                                     <select class="form-select" id="role" name="role" required>
                                                         <option value="">Select Role</option>
                                                         <c:forEach var="r" items="${roles}">
-                                                            <option value="${r}" ${role == r ? 'selected' : ''}>${r}</option>
+                                                            <option value="<c:out value='${r}'/>" <c:out value="${role == r ? 'selected' : ''}"/>><c:out value="${r}"/></option>
                                                         </c:forEach>
                                                     </select>
                                                 </div>
@@ -164,8 +164,8 @@
                                                     <select class="form-select" id="warehouseId" name="warehouseId">
                                                         <option value="">No Assignment</option>
                                                         <c:forEach var="wh" items="${warehouses}">
-                                                            <option value="${wh.id}" ${warehouseId == wh.id ? 'selected' : ''}>
-                                                                ${wh.name}
+                                                            <option value="<c:out value='${wh.id}'/>" <c:out value="${warehouseId == wh.id ? 'selected' : ''}"/>>
+                                                                <c:out value="${wh.name}"/>
                                                             </option>
                                                         </c:forEach>
                                                     </select>
@@ -251,7 +251,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

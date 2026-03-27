@@ -11,9 +11,11 @@ public class SalesOrderItem implements Serializable {
     private Long salesOrderId;
     private Long productId;
     private Integer quantity;
+    private Integer fulfilledQuantity;
     
     // Default constructor
     public SalesOrderItem() {
+        this.fulfilledQuantity = 0;
     }
     
     // Constructor with parameters
@@ -21,6 +23,7 @@ public class SalesOrderItem implements Serializable {
         this.salesOrderId = salesOrderId;
         this.productId = productId;
         this.quantity = quantity;
+        this.fulfilledQuantity = 0;
     }
     
     // Getters and Setters
@@ -47,6 +50,20 @@ public class SalesOrderItem implements Serializable {
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
     }
+
+    public Integer getFulfilledQuantity() {
+        return fulfilledQuantity;
+    }
+
+    public void setFulfilledQuantity(Integer fulfilledQuantity) {
+        this.fulfilledQuantity = fulfilledQuantity;
+    }
+
+    public Integer getRemainingQuantity() {
+        int qty = quantity != null ? quantity : 0;
+        int fulfilled = fulfilledQuantity != null ? fulfilledQuantity : 0;
+        return qty - fulfilled;
+    }
     
     @Override
     public String toString() {
@@ -54,6 +71,7 @@ public class SalesOrderItem implements Serializable {
                 "salesOrderId=" + salesOrderId +
                 ", productId=" + productId +
                 ", quantity=" + quantity +
+                ", fulfilledQuantity=" + fulfilledQuantity +
                 '}';
     }
 }

@@ -122,6 +122,36 @@ public class LocationController extends HttpServlet {
     }
     
     /**
+     * Get current user
+     */
+    private User getCurrentUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return null;
+        return (User) session.getAttribute("user");
+    }
+    
+    /**
+     * Check if user is warehouse-scoped (Staff or Manager — restricted to assigned warehouse)
+     */
+    private boolean isWarehouseScoped(HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        if (user == null) return false;
+        String role = user.getRole();
+        return "Staff".equals(role) || "Manager".equals(role);
+    }
+    
+    /**
+     * Get the user's assigned warehouse ID (for Staff and Manager)
+     */
+    private Long getAssignedWarehouseId(HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        if (user != null && ("Staff".equals(user.getRole()) || "Manager".equals(user.getRole()))) {
+            return user.getWarehouseId();
+        }
+        return null;
+    }
+    
+    /**
      * UC-LOC-004: View Location List
      */
     private void listLocations(HttpServletRequest request, HttpServletResponse response)
@@ -144,14 +174,26 @@ public class LocationController extends HttpServlet {
         String selectedKeyword = null;
         Boolean statusFilter = null;
 
-        if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
+        // Staff/Manager can only view locations for their assigned warehouse
+        if (isWarehouseScoped(request)) {
+            selectedWarehouseId = getAssignedWarehouseId(request);
+            if (selectedWarehouseId == null) {
+                request.setAttribute("errorMessage", "You are not assigned to any warehouse.");
+                request.getRequestDispatcher("/WEB-INF/views/location/list.jsp").forward(request, response);
+                return;
+            }
+            request.setAttribute("warehouseId", selectedWarehouseId);
+            request.setAttribute("isWarehouseScoped", true);
+        } else if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
             try {
                 selectedWarehouseId = Long.parseLong(warehouseIdStr.trim());
                 request.setAttribute("warehouseId", selectedWarehouseId);
             } catch (NumberFormatException e) {
                 selectedWarehouseId = null;
             }
-        } else if (type != null && !type.trim().isEmpty()) {
+        }
+
+        if (type != null && !type.trim().isEmpty()) {
             selectedType = type.trim();
             request.setAttribute("type", selectedType);
         } else if (status != null && !status.trim().isEmpty()) {
@@ -231,16 +273,29 @@ public class LocationController extends HttpServlet {
             return;
         }
         
-        // Pre-select warehouse if provided
-        String warehouseIdStr = request.getParameter("warehouseId");
-        if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
-            try {
-                Long warehouseId = Long.parseLong(warehouseIdStr.trim());
-                request.setAttribute("warehouseId", warehouseId);
-            } catch (NumberFormatException e) {
-                // Ignore invalid warehouse ID
+        // Manager: pre-select and lock to their assigned warehouse
+        if (isWarehouseScoped(request)) {
+            Long assignedWarehouseId = getAssignedWarehouseId(request);
+            if (assignedWarehouseId == null) {
+                request.getSession().setAttribute("errorMessage", "You are not assigned to any warehouse.");
+                response.sendRedirect(request.getContextPath() + "/location");
+                return;
+            }
+            request.setAttribute("lockedWarehouseId", assignedWarehouseId);
+            request.setAttribute("warehouseId", assignedWarehouseId);
+        } else {
+            // Pre-select warehouse if provided
+            String warehouseIdStr = request.getParameter("warehouseId");
+            if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
+                try {
+                    Long warehouseId = Long.parseLong(warehouseIdStr.trim());
+                    request.setAttribute("warehouseId", warehouseId);
+                } catch (NumberFormatException e) {
+                    // Ignore invalid warehouse ID
+                }
             }
         }
+        request.setAttribute("isWarehouseScoped", isWarehouseScoped(request));
         
         request.setAttribute("warehouses", warehouses);
         request.getRequestDispatcher("/WEB-INF/views/location/add.jsp").forward(request, response);
@@ -276,6 +331,16 @@ public class LocationController extends HttpServlet {
             } catch (NumberFormatException e) {
                 errorMsg.append("Invalid warehouse. ");
                 hasError = true;
+            }
+        }
+        
+        // Manager can only create locations for their assigned warehouse
+        if (!hasError && isWarehouseScoped(request)) {
+            Long assignedWarehouseId = getAssignedWarehouseId(request);
+            if (assignedWarehouseId == null || !assignedWarehouseId.equals(warehouseId)) {
+                request.getSession().setAttribute("errorMessage", "You can only create locations for your assigned warehouse.");
+                response.sendRedirect(request.getContextPath() + "/location?action=add");
+                return;
             }
         }
         
@@ -350,6 +415,16 @@ public class LocationController extends HttpServlet {
                 return;
             }
             
+            // Manager can only edit locations in their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(location.getWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to edit this location.");
+                    response.sendRedirect(request.getContextPath() + "/location?action=list");
+                    return;
+                }
+            }
+            
             // Get warehouse for display
             Warehouse warehouse = warehouseService.getWarehouseById(location.getWarehouseId());
             
@@ -392,6 +467,17 @@ public class LocationController extends HttpServlet {
         
         try {
             Long id = Long.parseLong(idParam.trim());
+            
+            // Manager can only update locations in their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Location existing = locationService.getLocationById(id);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (existing == null || assignedWarehouseId == null || !assignedWarehouseId.equals(existing.getWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to update this location.");
+                    response.sendRedirect(request.getContextPath() + "/location?action=list");
+                    return;
+                }
+            }
             
             // Validate required fields
             boolean hasError = false;
@@ -492,6 +578,16 @@ public class LocationController extends HttpServlet {
                 request.getSession().setAttribute("errorMessage", "Location not found");
                 response.sendRedirect(request.getContextPath() + "/location?action=list");
                 return;
+            }
+            
+            // Manager can only toggle locations in their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(location.getWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to modify this location.");
+                    response.sendRedirect(request.getContextPath() + "/location?action=list");
+                    return;
+                }
             }
             
             Long warehouseId = location.getWarehouseId();

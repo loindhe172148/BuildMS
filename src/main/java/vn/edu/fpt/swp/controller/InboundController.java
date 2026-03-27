@@ -464,6 +464,7 @@ public class InboundController extends HttpServlet {
                 if (product != null) {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
+                    request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
                 }
                 if (item.getLocationId() != null) {
                     Location location = inboundService.getLocationById(item.getLocationId());
@@ -672,6 +673,7 @@ public class InboundController extends HttpServlet {
                 if (product != null) {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
+                    request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
                 }
                 if (item.getLocationId() != null) {
                     Location location = inboundService.getLocationById(item.getLocationId());
@@ -830,7 +832,7 @@ public class InboundController extends HttpServlet {
         String[] locationIds = request.getParameterValues("locationId");
 
         if (productIds == null || receivedQuantities == null || locationIds == null) {
-            return true;
+            return false; // All three arrays are required for a consistent save
         }
 
         if (productIds.length != receivedQuantities.length || productIds.length != locationIds.length) {
@@ -843,18 +845,15 @@ public class InboundController extends HttpServlet {
             String locationIdStr = locationIds[i];
 
             if (productIdStr == null || productIdStr.trim().isEmpty() ||
-                receivedQtyStr == null || receivedQtyStr.trim().isEmpty()) {
+                receivedQtyStr == null || receivedQtyStr.trim().isEmpty() ||
+                locationIdStr == null || locationIdStr.trim().isEmpty()) {
                 return false;
             }
 
             try {
                 Long productId = Long.parseLong(productIdStr.trim());
                 Integer receivedQuantity = Integer.parseInt(receivedQtyStr.trim());
-                Long locationId = null;
-
-                if (locationIdStr != null && !locationIdStr.trim().isEmpty()) {
-                    locationId = Long.parseLong(locationIdStr.trim());
-                }
+                Long locationId = Long.parseLong(locationIdStr.trim());
 
                 boolean updated = inboundService.updateReceivedQuantity(requestId, productId, receivedQuantity, locationId);
                 if (!updated) {

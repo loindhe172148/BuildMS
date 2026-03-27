@@ -21,7 +21,7 @@
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
                 <jsp:param name="activeMenu" value="sales-orders" />
-                <jsp:param name="activeSubMenu" value="sales-order-list" />
+                <jsp:param name="activeSubMenu" value="order-list" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -45,7 +45,7 @@
                                     <a href="${contextPath}/sales-order">Sales Orders</a>
                                 </li>
                                 <li class="breadcrumb-item">
-                                    <a href="${contextPath}/sales-order?action=view&id=${order.id}">${order.orderNo}</a>
+                                    <a href="${contextPath}/sales-order?action=view&id=${order.id}"><c:out value="${order.orderNo}"/></a>
                                 </li>
                                 <li class="breadcrumb-item active" aria-current="page">Generate Outbound</li>
                             </ol>
@@ -53,14 +53,6 @@
                         
                         <!-- Alerts -->
                         <jsp:include page="/WEB-INF/common/alerts.jsp" />
-                        
-                        <c:if test="${not empty errorMessage}">
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="bx bx-error-circle me-2"></i>
-                                ${errorMessage}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        </c:if>
                         
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -77,8 +69,8 @@
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <p><strong>Order No:</strong> ${order.orderNo}</p>
-                                        <p><strong>Customer:</strong> ${customer.name}</p>
+                                        <p><strong>Order No:</strong> <c:out value="${order.orderNo}"/></p>
+                                        <p><strong>Customer:</strong> <c:out value="${customer.name}"/></p>
                                     </div>
                                     <div class="col-md-6">
                                         <p><strong>Status:</strong> 
@@ -104,8 +96,8 @@
                                             <select name="warehouseId" class="form-select" onchange="this.form.submit()">
                                                 <option value="">Select Warehouse</option>
                                                 <c:forEach var="warehouse" items="${warehouses}">
-                                                    <option value="${warehouse.id}" ${selectedWarehouseId == warehouse.id ? 'selected' : ''}>
-                                                        ${warehouse.name} (${warehouse.code})
+                                                    <option value="<c:out value='${warehouse.id}'/>" <c:out value="${selectedWarehouseId == warehouse.id ? 'selected' : ''}"/>>
+                                                        <c:out value="${warehouse.name}"/> (<c:out value="${warehouse.location}"/>)
                                                     </option>
                                                 </c:forEach>
                                             </select>
@@ -132,6 +124,7 @@
                                                 <tr>
                                                     <th>Product</th>
                                                     <th>SKU</th>
+                                                    <th>Unit</th>
                                                     <th class="text-end">Ordered Qty</th>
                                                     <th class="text-end">Available</th>
                                                     <th class="text-end">Fulfill Qty</th>
@@ -142,18 +135,19 @@
                                                 <c:forEach var="avail" items="${availability}">
                                                     <tr class="${avail.sufficient ? '' : 'table-warning'}">
                                                         <td>
-                                                            <strong>${avail.product.name}</strong>
+                                                            <strong><c:out value="${avail.product.name}"/></strong>
                                                             <input type="hidden" name="productId[]" value="${avail.product.id}">
                                                         </td>
-                                                        <td>${avail.product.sku}</td>
-                                                        <td class="text-end">${avail.requested}</td>
+                                                        <td><c:out value="${avail.product.sku}"/></td>
+                                                        <td><c:out value="${avail.product.unit}"/></td>
+                                                        <td class="text-end"><c:out value="${avail.requested}"/></td>
                                                         <td class="text-end">
                                                             <c:choose>
                                                                 <c:when test="${avail.available < avail.requested}">
-                                                                    <span class="text-danger">${avail.available}</span>
+                                                                    <span class="text-danger"><c:out value="${avail.available}"/></span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="text-success">${avail.available}</span>
+                                                                    <span class="text-success"><c:out value="${avail.available}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
@@ -163,7 +157,7 @@
                                                                    class="form-control form-control-sm text-end" 
                                                                    min="0" 
                                                                    max="${avail.requested}"
-                                                                   value="${avail.available >= avail.requested ? avail.requested : avail.available}">
+                                                                   value="<c:out value='${avail.available >= avail.requested ? avail.requested : avail.available}'/>">
                                                         </td>
                                                         <td>
                                                             <c:choose>
@@ -205,7 +199,7 @@
                             </div>
                         </c:if>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

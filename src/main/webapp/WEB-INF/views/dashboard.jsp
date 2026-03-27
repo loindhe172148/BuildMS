@@ -43,10 +43,10 @@
                                         <div class="col-sm-7">
                                             <div class="card-body">
                                                 <h5 class="card-title text-primary mb-3">
-                                                    Welcome back, ${sessionScope.user.name != null ? sessionScope.user.name : sessionScope.user.username}! 👋
+                                                    Welcome back, <c:out value="${sessionScope.user.name != null ? sessionScope.user.name : sessionScope.user.username}"/>! 👋
                                                 </h5>
                                                 <p class="mb-6">
-                                                    You are logged in as <strong>${sessionScope.user.role}</strong>.<br />
+                                                    You are logged in as <strong><c:out value="${sessionScope.user.role}"/></strong>.<br />
                                                     Manage your warehouse operations from this dashboard.
                                                 </p>
                                                 <a href="${contextPath}/inventory?action=byWarehouse" class="btn btn-sm btn-outline-primary">
@@ -78,7 +78,7 @@
                                                     </div>
                                                 </div>
                                                 <p class="mb-1">Products</p>
-                                                <h4 class="card-title mb-3">${totalProducts != null ? totalProducts : 0}</h4>
+                                                <h4 class="card-title mb-3"><c:out value="${totalProducts != null ? totalProducts : 0}"/></h4>
                                                 <small class="text-success fw-medium">
                                                     <a href="${contextPath}/product?action=list">View all</a>
                                                 </small>
@@ -96,7 +96,7 @@
                                                     </div>
                                                 </div>
                                                 <p class="mb-1">Warehouses</p>
-                                                <h4 class="card-title mb-3">${totalWarehouses != null ? totalWarehouses : 0}</h4>
+                                                <h4 class="card-title mb-3"><c:out value="${totalWarehouses != null ? totalWarehouses : 0}"/></h4>
                                                 <small class="text-success fw-medium">
                                                     <a href="${contextPath}/warehouse?action=list">View all</a>
                                                 </small>
@@ -120,7 +120,7 @@
                                             </div>
                                         </div>
                                         <p class="mb-1">Pending Inbound</p>
-                                        <h4 class="card-title mb-3">${pendingInbound != null ? pendingInbound : 0}</h4>
+                                        <h4 class="card-title mb-3"><c:out value="${pendingInbound != null ? pendingInbound : 0}"/></h4>
                                         <small><a href="${contextPath}/inbound?action=list&status=Created">View pending</a></small>
                                     </div>
                                 </div>
@@ -136,7 +136,7 @@
                                             </div>
                                         </div>
                                         <p class="mb-1">Pending Outbound</p>
-                                        <h4 class="card-title mb-3">${pendingOutbound != null ? pendingOutbound : 0}</h4>
+                                        <h4 class="card-title mb-3"><c:out value="${pendingOutbound != null ? pendingOutbound : 0}"/></h4>
                                         <small><a href="${contextPath}/outbound?action=list&status=Created">View pending</a></small>
                                     </div>
                                 </div>
@@ -152,8 +152,8 @@
                                             </div>
                                         </div>
                                         <p class="mb-1">Low Stock Items</p>
-                                        <h4 class="card-title mb-3">${lowStockItems != null ? lowStockItems : 0}</h4>
-                                        <small><a href="${contextPath}/inventory?action=lowStock">View items</a></small>
+                                        <h4 class="card-title mb-3"><c:out value="${lowStockItems != null ? lowStockItems : 0}"/></h4>
+                                        <small><a href="${contextPath}/inventory?action=search&maxQty=10">View items</a></small>
                                     </div>
                                 </div>
                             </div>
@@ -168,7 +168,7 @@
                                             </div>
                                         </div>
                                         <p class="mb-1">Categories</p>
-                                        <h4 class="card-title mb-3">${totalCategories != null ? totalCategories : 0}</h4>
+                                        <h4 class="card-title mb-3"><c:out value="${totalCategories != null ? totalCategories : 0}"/></h4>
                                         <small><a href="${contextPath}/category?action=list">View all</a></small>
                                     </div>
                                 </div>
@@ -204,30 +204,34 @@
                                             <tbody>
                                                 <c:choose>
                                                     <c:when test="${not empty recentRequests}">
-                                                        <c:forEach var="request" items="${recentRequests}">
+                                                        <c:forEach var="req" items="${recentRequests}">
                                                             <tr>
-                                                                <td><strong>${request.requestId}</strong></td>
+                                                                <td><strong>#<c:out value="${req.id}"/></strong></td>
                                                                 <td>
-                                                                    <span class="badge bg-label-${request.type == 'Inbound' ? 'info' : 'warning'}">
-                                                                        ${request.type}
+                                                                    <span class="badge bg-label-${req.type == 'Inbound' ? 'info' : 'warning'}">
+                                                                        <c:out value="${req.type}"/>
                                                                     </span>
                                                                 </td>
                                                                 <td>
-                                                                    <span class="badge bg-label-${request.status == 'Completed' ? 'success' : 
-                                                                                                  request.status == 'Rejected' ? 'danger' : 
-                                                                                                  request.status == 'InProgress' ? 'primary' : 'secondary'}">
-                                                                        ${request.status}
+                                                                    <span class="badge bg-label-${req.status == 'Completed' ? 'success' : 
+                                                                                                  req.status == 'Rejected' ? 'danger' : 
+                                                                                                  req.status == 'InProgress' ? 'primary' : 'secondary'}">
+                                                                        <c:out value="${req.status}"/>
                                                                     </span>
                                                                 </td>
-                                                                <td>${request.createdDate}</td>
                                                                 <td>
-                                                                    <a href="${contextPath}/${request.type == 'Inbound' ? 'inbound' : 'outbound'}?action=view&id=${request.requestId}" 
+                                                                    <c:if test="${not empty req.createdAt}">
+                                                                        <c:out value="${req.createdAt.toLocalDate()}"/> <c:out value="${req.createdAt.toLocalTime().toString().substring(0, 5)}"/>
+                                                                    </c:if>
+                                                                </td>
+                                                                <td>
+                                                                    <a href="${contextPath}/${req.type == 'Inbound' ? 'inbound' : 'outbound'}?action=details&id=${req.id}" 
                                                                        class="btn btn-sm btn-outline-primary">
                                                                         View
                                                                     </a>
                                                                 </td>
                                                             </tr>
-                                                        </c:forEach>
+                                        </c:forEach>
                                                     </c:when>
                                                     <c:otherwise>
                                                         <tr>

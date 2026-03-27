@@ -9,9 +9,14 @@ import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.model.Warehouse;
 import vn.edu.fpt.swp.service.WarehouseService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for Warehouse Management
@@ -120,23 +125,31 @@ public class WarehouseController extends HttpServlet {
         }
         
         String keyword = request.getParameter("keyword");
-        List<Warehouse> warehouses;
-        
-        // Search or get all
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            warehouses = warehouseService.searchWarehouses(keyword.trim());
-            request.setAttribute("keyword", keyword.trim());
-        } else {
-            warehouses = warehouseService.getAllWarehouses();
+        String selectedKeyword = keyword != null ? keyword.trim() : null;
+        if (selectedKeyword != null && selectedKeyword.isEmpty()) {
+            selectedKeyword = null;
         }
-        
-        // Add location count for each warehouse
-        for (Warehouse warehouse : warehouses) {
-            int locationCount = warehouseService.getLocationCount(warehouse.getId());
-            request.setAttribute("locationCount_" + warehouse.getId(), locationCount);
+        if (selectedKeyword != null) {
+            request.setAttribute("keyword", selectedKeyword);
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Warehouse> warehousePage = warehouseService.searchWarehousesPaginated(selectedKeyword, pageRequest);
         
-        request.setAttribute("warehouses", warehouses);
+        // Fetch all location counts in ONE query instead of N per-warehouse queries
+        java.util.Map<Long, Integer> locationCountMap = warehouseService.getAllLocationCounts();
+        request.setAttribute("locationCountMap", locationCountMap);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("warehouses", warehousePage.getItems());
+        request.setAttribute("currentPage", warehousePage.getCurrentPage());
+        request.setAttribute("totalPages", warehousePage.getTotalPages());
+        request.setAttribute("pageSize", warehousePage.getPageSize());
+        request.setAttribute("totalItems", warehousePage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/warehouse", paginationParams));
         request.getRequestDispatcher("/WEB-INF/views/warehouse/list.jsp").forward(request, response);
     }
     
@@ -275,6 +288,7 @@ public class WarehouseController extends HttpServlet {
                     warehouse.setName(name);
                     warehouse.setLocation(location);
                     request.setAttribute("warehouse", warehouse);
+                    request.setAttribute("locationCount", warehouseService.getLocationCount(id));
                 }
                 request.getRequestDispatcher("/WEB-INF/views/warehouse/edit.jsp").forward(request, response);
                 return;
@@ -293,6 +307,7 @@ public class WarehouseController extends HttpServlet {
                     existing.setName(name);
                     existing.setLocation(location);
                     request.setAttribute("warehouse", existing);
+                    request.setAttribute("locationCount", warehouseService.getLocationCount(id));
                     request.getRequestDispatcher("/WEB-INF/views/warehouse/edit.jsp").forward(request, response);
                     return;
                 }

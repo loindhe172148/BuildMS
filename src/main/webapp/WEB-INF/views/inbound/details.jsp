@@ -190,19 +190,19 @@
                                                         <td>
                                                             <span class="text-muted"><c:out value="${requestScope['productSku_'.concat(item.productId)]}"/></span>
                                                         </td>
-                                                        <td class="text-center"><c:out value="${item.quantity}"/></td>
+                                                        <td class="text-center"><c:out value="${item.quantity}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></td>
                                                         <td class="text-center">
                                                             <c:choose>
                                                                 <c:when test="${item.receivedQuantity != null}">
                                                                     <c:choose>
                                                                         <c:when test="${item.receivedQuantity == item.quantity}">
-                                                                            <span class="text-success"><c:out value="${item.receivedQuantity}"/></span>
+                                                                            <span class="text-success"><c:out value="${item.receivedQuantity}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></span>
                                                                         </c:when>
                                                                         <c:when test="${item.receivedQuantity < item.quantity}">
-                                                                            <span class="text-warning"><c:out value="${item.receivedQuantity}"/></span>
+                                                                            <span class="text-warning"><c:out value="${item.receivedQuantity}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></span>
                                                                         </c:when>
                                                                         <c:otherwise>
-                                                                            <span class="text-info"><c:out value="${item.receivedQuantity}"/></span>
+                                                                            <span class="text-info"><c:out value="${item.receivedQuantity}"/> <span class="text-muted"><c:out value="${requestScope['productUnit_'.concat(item.productId)]}"/></span></span>
                                                                         </c:otherwise>
                                                                     </c:choose>
                                                                 </c:when>

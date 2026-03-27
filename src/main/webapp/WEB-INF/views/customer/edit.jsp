@@ -20,7 +20,6 @@
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
                 <jsp:param name="activeMenu" value="customers" />
-                <jsp:param name="activeSubMenu" value="customer-list" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -72,7 +71,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -88,7 +87,7 @@
                                                 </label>
                                                 <input type="text" class="form-control" id="code" name="code" 
                                                        placeholder="Enter customer code (e.g., CUS001)" 
-                                                       value="${not empty code ? code : customer.code}" 
+                                                       value="<c:out value='${not empty code ? code : customer.code}'/>" 
                                                        maxlength="50" 
                                                        required />
                                             </div>
@@ -100,7 +99,7 @@
                                                 </label>
                                                 <input type="text" class="form-control" id="name" name="name" 
                                                        placeholder="Enter customer name" 
-                                                       value="${not empty name ? name : customer.name}" 
+                                                       value="<c:out value='${not empty name ? name : customer.name}'/>" 
                                                        maxlength="255" 
                                                        required />
                                             </div>
@@ -111,7 +110,7 @@
                                                 <textarea class="form-control" id="contactInfo" name="contactInfo" 
                                                           rows="4" 
                                                           maxlength="500"
-                                                          placeholder="Enter contact details (phone, email, address, etc.)">${not empty contactInfo ? contactInfo : customer.contactInfo}</textarea>
+                                                          placeholder="Enter contact details (phone, email, address, etc.)"><c:out value="${not empty contactInfo ? contactInfo : customer.contactInfo}"/></textarea>
                                             </div>
                                             
                                             <!-- Form Actions -->
@@ -152,34 +151,40 @@
                                         
                                         <div class="d-flex align-items-center mb-3">
                                             <span class="me-3">Total Orders:</span>
-                                            <span class="badge bg-label-info">${orderCount}</span>
+                                            <span class="badge bg-label-info"><c:out value="${orderCount}"/></span>
                                         </div>
                                         
                                         <hr />
                                         
-                                        <c:if test="${currentUser.role == 'Admin'}">
+                                        <c:if test="${currentUser.role == 'Manager'}">
                                             <c:choose>
                                                 <c:when test="${customer.status == 'Active'}">
-                                                    <a href="${contextPath}/customer?action=toggle&id=${customer.id}" 
-                                                       class="btn btn-warning w-100"
-                                                       onclick="return confirm('Are you sure you want to deactivate this customer?');">
-                                                        <i class="bx bx-block me-1"></i>Deactivate Customer
-                                                    </a>
+                                                    <form action="${contextPath}/customer" method="post" class="w-100">
+                                                        <input type="hidden" name="action" value="toggle" />
+                                                        <input type="hidden" name="id" value="${customer.id}" />
+                                                        <button type="submit" class="btn btn-warning w-100"
+                                                                onclick="return confirm('Are you sure you want to deactivate this customer?');">
+                                                            <i class="bx bx-block me-1"></i>Deactivate Customer
+                                                        </button>
+                                                    </form>
                                                 </c:when>
                                                 <c:otherwise>
-                                                    <a href="${contextPath}/customer?action=toggle&id=${customer.id}" 
-                                                       class="btn btn-success w-100"
-                                                       onclick="return confirm('Are you sure you want to activate this customer?');">
-                                                        <i class="bx bx-check me-1"></i>Activate Customer
-                                                    </a>
+                                                    <form action="${contextPath}/customer" method="post" class="w-100">
+                                                        <input type="hidden" name="action" value="toggle" />
+                                                        <input type="hidden" name="id" value="${customer.id}" />
+                                                        <button type="submit" class="btn btn-success w-100"
+                                                                onclick="return confirm('Are you sure you want to activate this customer?');">
+                                                            <i class="bx bx-check me-1"></i>Activate Customer
+                                                        </button>
+                                                    </form>
                                                 </c:otherwise>
                                             </c:choose>
                                         </c:if>
                                         
-                                        <c:if test="${currentUser.role != 'Admin'}">
+                                        <c:if test="${currentUser.role != 'Manager'}">
                                             <div class="alert alert-light mb-0">
                                                 <i class="bx bx-info-circle me-1"></i>
-                                                Only Admin can change customer status.
+                                                Only Manager can change customer status.
                                             </div>
                                         </c:if>
                                     </div>
@@ -207,7 +212,7 @@
                                                 </a>
                                             </c:if>
                                             <c:if test="${customer.status == 'Active'}">
-                                                <a href="${contextPath}/sales-order?action=add&customerId=${customer.id}" 
+                                                <a href="${contextPath}/sales-order?action=create&customerId=${customer.id}" 
                                                    class="btn btn-outline-success">
                                                     <i class="bx bx-plus me-1"></i>
                                                     Create Sales Order
@@ -239,7 +244,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

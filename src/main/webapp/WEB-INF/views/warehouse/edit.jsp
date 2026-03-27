@@ -67,7 +67,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -84,7 +84,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-buildings"></i></span>
                                                     <input type="text" class="form-control" id="name" name="name" 
-                                                           value="${warehouse.name}" placeholder="Enter warehouse name"
+                                                           value="<c:out value='${warehouse.name}'/>" placeholder="Enter warehouse name"
                                                            required maxlength="255" />
                                                 </div>
                                             </div>
@@ -95,7 +95,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-map-pin"></i></span>
                                                     <input type="text" class="form-control" id="location" name="location" 
-                                                           value="${warehouse.location}" placeholder="Enter warehouse location or address"
+                                                           value="<c:out value='${warehouse.location}'/>" placeholder="Enter warehouse location or address"
                                                            maxlength="255" />
                                                 </div>
                                             </div>
@@ -129,7 +129,7 @@
                                             </div>
                                             <div>
                                                 <small class="text-muted d-block">Total Locations</small>
-                                                <span class="fw-medium">${locationCount} location(s)</span>
+                                                <span class="fw-medium"><c:out value="${locationCount}"/> location(s)</span>
                                             </div>
                                         </div>
                                         
@@ -140,7 +140,7 @@
                                                 </div>
                                                 <div>
                                                     <small class="text-muted d-block">Created Date</small>
-                                                    <span class="fw-medium">${warehouse.createdAt}</span>
+                                                    <span class="fw-medium"><c:out value="${warehouse.createdAt}"/></span>
                                                 </div>
                                             </div>
                                         </c:if>
@@ -168,7 +168,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

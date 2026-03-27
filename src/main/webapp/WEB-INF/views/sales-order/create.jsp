@@ -21,7 +21,7 @@
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
                 <jsp:param name="activeMenu" value="sales-orders" />
-                <jsp:param name="activeSubMenu" value="sales-order-create" />
+                <jsp:param name="activeSubMenu" value="order-create" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -51,14 +51,6 @@
                         <!-- Alerts -->
                         <jsp:include page="/WEB-INF/common/alerts.jsp" />
                         
-                        <c:if test="${not empty errorMessage}">
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="bx bx-error-circle me-2"></i>
-                                ${errorMessage}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        </c:if>
-                        
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h4 class="mb-0">
@@ -71,7 +63,7 @@
                                 <div class="alert alert-warning">
                                     <i class="bx bx-info-circle me-2"></i>
                                     No customers available. 
-                                    <a href="${contextPath}/customer?action=create">Create a customer first</a>.
+                                    <a href="${contextPath}/customer?action=add">Create a customer first</a>.
                                 </div>
                             </c:when>
                             <c:otherwise>
@@ -90,7 +82,7 @@
                                                     <select id="customerId" name="customerId" class="form-select" required>
                                                         <option value="">Select Customer</option>
                                                         <c:forEach var="customer" items="${customers}">
-                                                            <option value="${customer.id}">${customer.name} (${customer.code})</option>
+                                                            <option value="<c:out value='${customer.id}'/>"><c:out value="${customer.name}"/> (<c:out value="${customer.code}"/>)</option>
                                                         </c:forEach>
                                                     </select>
                                                 </div>
@@ -161,7 +153,7 @@
             // Products data
             const products = [
                 <c:forEach var="product" items="${products}" varStatus="status">
-                    {id: ${product.id}, name: '<c:out value="${product.name}" escapeXml="true"/>', sku: '<c:out value="${product.sku}" escapeXml="true"/>'}<c:if test="${!status.last}">,</c:if>
+                    {id: ${product.id}, name: '<c:out value="${product.name}" escapeXml="true"/>', sku: '<c:out value="${product.sku}" escapeXml="true"/>', unit: '<c:out value="${product.unit}" escapeXml="true"/>'}<c:if test="${!status.last}">,</c:if>
                 </c:forEach>
             ];
             
@@ -182,9 +174,12 @@
                             <option value="">Select Product</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">Quantity <span class="text-danger">*</span></label>
                         <input type="number" name="quantity[]" class="form-control" min="1" value="1" required>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end pb-1">
+                        <span class="unit-badge text-muted fst-italic"></span>
                     </div>
                     <div class="col-md-3">
                         <button type="button" class="btn btn-outline-danger remove-item-btn">
@@ -195,10 +190,12 @@
                 
                 // Populate product dropdown safely
                 const productSelect = row.querySelector('.product-select');
+                const unitBadge = row.querySelector('.unit-badge');
                 products.forEach(p => {
                     const option = document.createElement('option');
                     option.value = p.id;
                     option.textContent = p.name + ' (' + p.sku + ')';
+                    option.dataset.unit = p.unit;
                     productSelect.appendChild(option);
                 });
                 
@@ -208,8 +205,10 @@
                     updateUI();
                 });
                 
-                // Check for duplicate products
-                row.querySelector('.product-select').addEventListener('change', function() {
+                // Show unit when product is selected
+                productSelect.addEventListener('change', function() {
+                    const selected = this.options[this.selectedIndex];
+                    unitBadge.textContent = selected.dataset.unit || '';
                     validateDuplicates();
                 });
                 

@@ -67,7 +67,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -83,7 +83,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-buildings"></i></span>
                                                     <input type="text" class="form-control" id="name" name="name" 
-                                                           value="${name}" placeholder="Enter warehouse name"
+                                                           value="<c:out value='${name}'/>" placeholder="Enter warehouse name"
                                                            required maxlength="255" />
                                                 </div>
                                             </div>
@@ -94,7 +94,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-map-pin"></i></span>
                                                     <input type="text" class="form-control" id="location" name="location" 
-                                                           value="${location}" placeholder="Enter warehouse location or address"
+                                                           value="<c:out value='${location}'/>" placeholder="Enter warehouse location or address"
                                                            maxlength="255" />
                                                 </div>
                                                 <div class="form-text">
@@ -148,7 +148,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->
