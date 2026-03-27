@@ -156,6 +156,15 @@ public class SalesOrderController extends HttpServlet {
      */
     private void showCreateForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Admin/Sales can create
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can create sales orders");
+            listOrders(request, response);
+            return;
+        }
         
         // Get active customers
         List<Customer> customers = salesOrderService.getActiveCustomers();

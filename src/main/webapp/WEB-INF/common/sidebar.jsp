@@ -221,20 +221,22 @@
             </li>
         </c:if>
 
-        <%-- SALES — Admin and Sales only --%>
-        <%-- Manager does not handle commercial/sales operations --%>
-        <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Sales'}">
+        <%-- SALES — Admin, Sales, and Manager (view-only) --%>
+        <%-- Manager does not handle commercial/sales operations but can view orders --%>
+        <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Sales' || currentUser.role == 'Manager'}">
             <li class="menu-header small text-uppercase">
                 <span class="menu-header-text">Sales</span>
             </li>
 
-            <!-- Customers — direct link; Add button on list page -->
-            <li class="menu-item ${param.activeMenu == 'customers' ? 'active' : ''}">
-                <a href="${contextPath}/customer?action=list" class="menu-link">
-                    <i class="menu-icon tf-icons bx bx-user-circle"></i>
-                    <div class="text-truncate">Customers</div>
-                </a>
-            </li>
+            <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Sales'}">
+                <!-- Customers — direct link; Add button on list page -->
+                <li class="menu-item ${param.activeMenu == 'customers' ? 'active' : ''}">
+                    <a href="${contextPath}/customer?action=list" class="menu-link">
+                        <i class="menu-icon tf-icons bx bx-user-circle"></i>
+                        <div class="text-truncate">Customers</div>
+                    </a>
+                </li>
+            </c:if>
 
             <!-- Sales Orders -->
             <li class="menu-item ${param.activeMenu == 'sales-orders' ? 'active open' : ''}">
@@ -248,11 +250,13 @@
                             <div class="text-truncate">Order List</div>
                         </a>
                     </li>
-                    <li class="menu-item ${param.activeSubMenu == 'order-create' ? 'active' : ''}">
-                        <a href="${contextPath}/sales-order?action=create" class="menu-link">
-                            <div class="text-truncate">Create Order</div>
-                        </a>
-                    </li>
+                    <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Sales'}">
+                        <li class="menu-item ${param.activeSubMenu == 'order-create' ? 'active' : ''}">
+                            <a href="${contextPath}/sales-order?action=create" class="menu-link">
+                                <div class="text-truncate">Create Order</div>
+                            </a>
+                        </li>
+                    </c:if>
                 </ul>
             </li>
         </c:if>
