@@ -141,8 +141,8 @@ public class TransferService {
         return requestDAO.findByTypeAndStatus("Transfer", status);
     }
 
-    public PageResult<Request> getTransferRequestsPaginated(String status, Long warehouseId, Long currentUserId, PageRequest pageRequest) {
-        return requestDAO.searchTransferPaginated(status, warehouseId, currentUserId, pageRequest);
+    public PageResult<Request> getTransferRequestsPaginated(String status, Long warehouseId, PageRequest pageRequest) {
+        return requestDAO.searchPaginated("Transfer", status, warehouseId, pageRequest);
     }
     
     /**
