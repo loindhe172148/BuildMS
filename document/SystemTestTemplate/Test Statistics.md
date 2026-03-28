@@ -1,0 +1,14 @@
+# Test Statistics
+
+| TEST STATISTICS   | Unnamed: 2                                                                                    | Unnamed: 3   | Unnamed: 4        | Unnamed: 5   | Unnamed: 6   | Unnamed: 7                              |
+|:------------------|:----------------------------------------------------------------------------------------------|:-------------|:------------------|:-------------|:-------------|:----------------------------------------|
+| Project Name      | <Project Name>                                                                                |              | Creator           |              |              |                                         |
+| Project Code      | <Project Code>                                                                                |              | Reviewer/Approver |              |              |                                         |
+| Document Code     | <Project Code>_Test Report_vx.x                                                               |              | Issue Date        |              |              | <Date when this test report is created> |
+| Notes             | <List modules included in this release> ex: Release 1 includes 2 modules: Module1 and Module2 |              |                   |              |              |                                         |
+| No                | Module code                                                                                   | Passed       | Failed            | Pending      |              | Number of  test cases                   |
+| 1                 | <Workflow Name1>                                                                              | 0            | 0                 | 6            | 0.0          | 8                                       |
+| 2                 | <Workflow Name2>                                                                              | 0            | 0                 | 5            | 0.0          | 6                                       |
+|                   | Sub total                                                                                     | 0            | 0                 | 11           | 0.0          | 14                                      |
+|                   | Test coverage                                                                                 |              | 0                 | %            |              |                                         |
+|                   | Test successful coverage                                                                      |              | 0                 | %            |              |                                         |

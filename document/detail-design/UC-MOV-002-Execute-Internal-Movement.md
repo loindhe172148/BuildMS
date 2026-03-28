@@ -7,7 +7,7 @@
 | **Use Case Name** | Execute Internal Movement |
 | **Primary Actor** | Staff |
 | **Description** | Physically move goods between locations and update system records |
-| **Preconditions** | Staff is logged in; Movement request exists and is approved/ready |
+| **Preconditions** | Staff is logged in; Movement request exists with status **Approved** (approved by Manager/Admin via UC-MOV-003) |
 | **Postconditions** | Goods moved; Location data updated; Request completed |
 
 ---
@@ -17,7 +17,7 @@
 ### Step 1: Navigate to Movement Requests
 - Staff navigates to Internal Movement section
 - System displays list of movement requests
-- Staff filters by status "Approved" or "Created" (based on workflow)
+- Staff filters by status "Approved" to find requests ready for execution
 
 ### Step 2: Select Request to Execute
 - Staff clicks on a movement request
@@ -131,8 +131,8 @@
 
 ## State Transition
 ```
-Created/Approved → In Progress (Staff starts)
-In Progress → Completed (Staff completes)
+Approved → In Progress (Staff starts execution)
+In Progress → Completed (Staff completes execution)
 ```
 
 ---

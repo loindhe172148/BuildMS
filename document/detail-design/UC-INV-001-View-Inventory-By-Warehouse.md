@@ -35,10 +35,10 @@
 | 3a | Selected warehouse has no inventory |
 | 3b | System displays message: "No inventory in this warehouse" |
 
-### AF-2: Staff Warehouse Filter
+### AF-2: Staff/Manager Warehouse Filter
 | Step | Description |
 |------|-------------|
-| 2a | Staff user accesses inventory |
+| 2a | Staff or Manager user accesses inventory |
 | 2b | System automatically filters to their assigned warehouse |
 | 2c | Warehouse dropdown is hidden or disabled |
 
@@ -55,8 +55,8 @@
 
 | Rule ID | Description |
 |---------|-------------|
-| BR-INV-001 | Staff can only view inventory in their assigned warehouse |
-| BR-INV-002 | Admin and Manager can view all warehouses |
+| BR-INV-001 | Staff and Manager can only view inventory in their assigned warehouse |
+| BR-INV-002 | Admin can view all warehouses |
 | BR-INV-003 | Sales cannot view inventory |
 
 ---
@@ -66,7 +66,7 @@
 | Role | Access Level |
 |------|--------------|
 | Admin | Full access - view all warehouses |
-| Manager | Full access - view all warehouses |
+| Manager | View only - limited to assigned warehouse |
 | Staff | View only - limited to assigned warehouse |
 | Sales | No access |
 
@@ -95,7 +95,7 @@
 
 ## 7. UI Requirements
 
-- Warehouse dropdown filter (disabled for Staff)
+- Warehouse dropdown filter (disabled for Staff and Manager)
 - Collapsible location sections
 - Product table within each location
 - Search box for SKU/product name

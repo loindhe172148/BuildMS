@@ -25,6 +25,8 @@
 ### Step 3: Display Creation Form
 - System displays form with fields:
   - Source Warehouse (dropdown, required)
+    - **If Manager:** Auto-selected to Manager's assigned warehouse (read-only)
+    - **If Admin:** All active warehouses shown
   - Outbound Reason (dropdown, required):
     - Damage/Disposal
     - Return to Supplier
@@ -35,7 +37,8 @@
   - Request Items section
 
 ### Step 4: Select Source Warehouse
-- Manager selects warehouse from dropdown
+- **If Manager:** Warehouse is pre-selected and locked to their assigned warehouse
+- **If Admin:** Manager selects warehouse from dropdown
 - System validates warehouse is active
 
 ### Step 5: Select Outbound Reason
@@ -110,11 +113,12 @@
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-INT-001 | Only Manager can create internal outbound requests |
+| BR-INT-001 | Only Admin and Manager can create internal outbound requests |
 | BR-INT-002 | Internal requests have no sales order reference |
 | BR-INT-003 | Outbound reason must be specified |
 | BR-INT-004 | Request follows standard approval workflow |
 | BR-INT-005 | Inventory check is informational only |
+| BR-INT-006 | Manager can only create internal outbound requests for their assigned warehouse |
 
 ---
 

@@ -72,7 +72,7 @@
 | BR-USER-002 | Email must be unique and valid format |
 | BR-USER-003 | Password minimum 6 characters |
 | BR-USER-004 | Role is required |
-| BR-USER-005 | Staff and Manager should have warehouse assignment |
+| BR-USER-005 | Staff and Manager **must** have warehouse assignment |
 | BR-USER-006 | New users are active by default |
 
 ---
@@ -98,7 +98,7 @@
 | Email | String (255) | Yes | Valid email format, unique |
 | Password | String | Yes | Min 6 characters |
 | Role | String (50) | Yes | Admin/Manager/Staff/Sales |
-| WarehouseId | Long | No | Must exist if provided |
+| WarehouseId | Long | Conditional | **Required for Staff and Manager roles**. Must exist if provided |
 
 ### Database Changes
 - INSERT into `Users` table
@@ -110,6 +110,7 @@
 - Use form layout template from `template/html/form-layouts-vertical.html`
 - Password field with visibility toggle
 - Role as dropdown with options: Admin, Manager, Staff, Sales
-- Warehouse dropdown (enabled for Staff/Manager roles)
+- Warehouse dropdown (enabled and **required** for Staff/Manager roles)
 - Display validation errors inline
+- Show validation error if Staff/Manager submitted without warehouse
 - Include "Save" and "Cancel" buttons
