@@ -139,6 +139,18 @@
                                                 </p>
                                             </div>
                                             <div class="col-md-6 mb-3">
+                                                <label class="form-label text-muted">Provider</label>
+                                                <p class="mb-0 fw-semibold">
+                                                    <c:choose>
+                                                        <c:when test="${not empty provider}">
+                                                            <c:out value="${provider.name}"/>
+                                                            <span class="text-muted ms-1">(<c:out value="${provider.code}"/>)</span>
+                                                        </c:when>
+                                                        <c:otherwise><span class="text-muted">-</span></c:otherwise>
+                                                    </c:choose>
+                                                </p>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
                                                 <label class="form-label text-muted">Expected Date</label>
                                                 <p class="mb-0 fw-semibold">
                                                     <c:choose>

@@ -87,6 +87,16 @@
             </a>
         </li>
 
+        <!-- Providers — Admin/Manager only -->
+        <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
+            <li class="menu-item ${param.activeMenu == 'providers' ? 'active' : ''}">
+                <a href="${contextPath}/provider?action=list" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-store"></i>
+                    <div class="text-truncate">Providers</div>
+                </a>
+            </li>
+        </c:if>
+
         <!-- Warehouses — Admin/Manager only -->
         <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
             <li class="menu-item ${param.activeMenu == 'warehouses' ? 'active' : ''}">
