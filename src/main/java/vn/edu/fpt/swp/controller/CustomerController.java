@@ -292,7 +292,7 @@ public class CustomerController extends HttpServlet {
         }
         
         try {
-            Long id = Long.valueOf(idParam);
+            Long id = Long.parseLong(idParam);
             Customer customer = customerService.getCustomerById(id);
             
             if (customer == null) {
