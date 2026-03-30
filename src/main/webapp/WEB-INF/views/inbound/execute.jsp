@@ -1,5 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
 
@@ -43,7 +45,7 @@
                                 <li class="breadcrumb-item">
                                     <a href="${contextPath}/inbound">Inbound Requests</a>
                                 </li>
-                                <li class="breadcrumb-item active" aria-current="page">Execute #${inboundRequest.id}</li>
+                                <li class="breadcrumb-item active" aria-current="page">Execute #<c:out value="${inboundRequest.id}"/></li>
                             </ol>
                         </nav>
                         
@@ -51,7 +53,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -60,7 +62,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -70,7 +72,7 @@
                         <div class="d-flex justify-content-between align-items-center mb-6">
                             <div>
                                 <h4 class="mb-1">
-                                    <i class="bx bx-play-circle me-2"></i>Execute Inbound Request #${inboundRequest.id}
+                                    <i class="bx bx-play-circle me-2"></i>Execute Inbound Request #<c:out value="${inboundRequest.id}"/>
                                 </h4>
                                 <c:choose>
                                     <c:when test="${inboundRequest.status == 'Approved'}">
@@ -111,7 +113,7 @@
                                     <div class="card mb-6">
                                         <div class="card-header d-flex justify-content-between align-items-center">
                                             <h5 class="mb-0">Items to Receive</h5>
-                                            <span class="badge bg-primary">${items.size()} items</span>
+                                            <span class="badge bg-primary">${fn:length(items)} items</span>
                                         </div>
                                         <div class="card-body">
                                             <c:forEach var="item" items="${items}" varStatus="status">
@@ -119,14 +121,14 @@
                                                     <div class="card-body">
                                                         <div class="d-flex justify-content-between align-items-start mb-3">
                                                             <div>
-                                                                <h6 class="mb-1">${requestScope['productName_'.concat(item.productId)]}</h6>
-                                                                <small class="text-muted">SKU: ${requestScope['productSku_'.concat(item.productId)]}</small>
+                                                                <h6 class="mb-1"><c:out value="${requestScope['productName_'.concat(item.productId)]}"/></h6>
+                                                                <small class="text-muted">SKU: <c:out value="${requestScope['productSku_'.concat(item.productId)]}"/></small>
                                                             </div>
                                                             <c:choose>
-                                                                <c:when test="${not empty item.receivedQuantity && item.receivedQuantity == item.quantity}">
+                                                                <c:when test="${item.receivedQuantity != null && item.receivedQuantity == item.quantity}">
                                                                     <span class="badge bg-success"><i class="bx bx-check me-1"></i>Complete</span>
                                                                 </c:when>
-                                                                <c:when test="${not empty item.receivedQuantity && item.receivedQuantity > 0}">
+                                                                <c:when test="${item.receivedQuantity != null && item.receivedQuantity > 0}">
                                                                     <span class="badge bg-warning">Partial</span>
                                                                 </c:when>
                                                                 <c:otherwise>
@@ -135,30 +137,30 @@
                                                             </c:choose>
                                                         </div>
                                                         
-                                                        <form action="${contextPath}/inbound" method="post" class="row g-3 align-items-end">
+                                                        <form action="${contextPath}/inbound" method="post" class="row g-3 align-items-end item-update-form">
                                                             <input type="hidden" name="action" value="updateItem" />
                                                             <input type="hidden" name="id" value="${inboundRequest.id}" />
                                                             <input type="hidden" name="productId" value="${item.productId}" />
                                                             
                                                             <div class="col-md-3">
                                                                 <label class="form-label">Expected Qty</label>
-                                                                <input type="text" class="form-control" value="${item.quantity}" readonly />
+                                                                <input type="text" class="form-control" value="<c:out value='${item.quantity}'/>" readonly />
                                                             </div>
                                                             
                                                             <div class="col-md-3">
                                                                 <label class="form-label">Received Qty <span class="text-danger">*</span></label>
                                                                 <input type="number" class="form-control" name="receivedQuantity" 
-                                                                       min="0" value="${not empty item.receivedQuantity ? item.receivedQuantity : item.quantity}" required />
+                                                                     min="0" value="<c:out value='${item.receivedQuantity != null ? item.receivedQuantity : item.quantity}'/>" required />
                                                             </div>
                                                             
                                                             <div class="col-md-4">
-                                                                <label class="form-label">Location</label>
-                                                                <select class="form-select" name="locationId">
+                                                                <label class="form-label">Location <span class="text-danger">*</span></label>
+                                                                <select class="form-select" name="locationId" required>
                                                                     <option value="">Select location...</option>
                                                                     <c:forEach var="loc" items="${locations}">
-                                                                        <c:if test="${loc.isActive}">
-                                                                            <option value="${loc.id}" ${item.locationId == loc.id ? 'selected' : ''}>
-                                                                                ${loc.code} (${loc.type})
+                                                                        <c:if test="${loc.active}">
+                                                                            <option value="<c:out value='${loc.id}'/>" <c:out value="${item.locationId == loc.id ? 'selected' : ''}"/>>
+                                                                                <c:out value="${loc.code}"/> (<c:out value="${loc.type}"/>)
                                                                             </option>
                                                                         </c:if>
                                                                     </c:forEach>
@@ -180,7 +182,7 @@
                                     <!-- Complete Button -->
                                     <div class="card">
                                         <div class="card-body">
-                                            <form action="${contextPath}/inbound" method="post">
+                                            <form id="completeForm" action="${contextPath}/inbound" method="post">
                                                 <input type="hidden" name="action" value="complete" />
                                                 <input type="hidden" name="id" value="${inboundRequest.id}" />
                                                 <button type="submit" class="btn btn-success btn-lg w-100" 
@@ -211,14 +213,14 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label text-muted small">Total Items</label>
-                                            <p class="mb-0 fw-semibold">${items.size()}</p>
+                                            <p class="mb-0 fw-semibold">${fn:length(items)}</p>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label text-muted small">Expected Date</label>
                                             <p class="mb-0">
                                                 <c:choose>
                                                     <c:when test="${not empty inboundRequest.expectedDate}">
-                                                        ${inboundRequest.expectedDate.toLocalDate()}
+                                                        <c:out value="${inboundRequest.expectedDate.toLocalDate()}"/>
                                                     </c:when>
                                                     <c:otherwise>-</c:otherwise>
                                                 </c:choose>
@@ -249,7 +251,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <jsp:include page="/WEB-INF/common/footer.jsp" />
@@ -267,5 +269,46 @@
     <!-- / Layout wrapper -->
     
     <jsp:include page="/WEB-INF/common/scripts.jsp" />
+    <script>
+        (function () {
+            const completeForm = document.getElementById('completeForm');
+            if (!completeForm) {
+                return;
+            }
+
+            completeForm.addEventListener('submit', function () {
+                const oldGeneratedInputs = completeForm.querySelectorAll('.generated-item-sync');
+                oldGeneratedInputs.forEach(function (input) {
+                    input.remove();
+                });
+
+                const itemForms = document.querySelectorAll('.item-update-form');
+                itemForms.forEach(function (itemForm) {
+                    const productIdInput = itemForm.querySelector('input[name="productId"]');
+                    const receivedQtyInput = itemForm.querySelector('input[name="receivedQuantity"]');
+                    const locationIdInput = itemForm.querySelector('select[name="locationId"]');
+
+                    if (!productIdInput || !receivedQtyInput || !locationIdInput) {
+                        return;
+                    }
+
+                    const payload = [
+                        { name: 'productId', value: productIdInput.value },
+                        { name: 'receivedQuantity', value: receivedQtyInput.value },
+                        { name: 'locationId', value: locationIdInput.value }
+                    ];
+
+                    payload.forEach(function (entry) {
+                        const hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.name = entry.name;
+                        hiddenInput.value = entry.value;
+                        hiddenInput.className = 'generated-item-sync';
+                        completeForm.appendChild(hiddenInput);
+                    });
+                });
+            });
+        })();
+    </script>
 </body>
 </html>

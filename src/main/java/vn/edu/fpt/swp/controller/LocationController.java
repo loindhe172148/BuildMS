@@ -11,9 +11,14 @@ import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.model.Warehouse;
 import vn.edu.fpt.swp.service.LocationService;
 import vn.edu.fpt.swp.service.WarehouseService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for Location Management
@@ -132,54 +137,74 @@ public class LocationController extends HttpServlet {
         String type = request.getParameter("type");
         String status = request.getParameter("status");
         String keyword = request.getParameter("keyword");
-        
-        List<Location> locations;
-        
-        // Apply filters
+
+        Long selectedWarehouseId = null;
+        String selectedType = null;
+        String selectedStatus = null;
+        String selectedKeyword = null;
+        Boolean statusFilter = null;
+
         if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
             try {
-                Long warehouseId = Long.parseLong(warehouseIdStr.trim());
-                locations = locationService.getLocationsByWarehouse(warehouseId);
-                request.setAttribute("warehouseId", warehouseId);
+                selectedWarehouseId = Long.parseLong(warehouseIdStr.trim());
+                request.setAttribute("warehouseId", selectedWarehouseId);
             } catch (NumberFormatException e) {
-                locations = locationService.getAllLocations();
+                selectedWarehouseId = null;
             }
         } else if (type != null && !type.trim().isEmpty()) {
-            locations = locationService.getLocationsByType(type.trim());
-            request.setAttribute("type", type.trim());
+            selectedType = type.trim();
+            request.setAttribute("type", selectedType);
         } else if (status != null && !status.trim().isEmpty()) {
             if ("active".equalsIgnoreCase(status)) {
-                locations = locationService.getLocationsByStatus(true);
-                request.setAttribute("status", "active");
+                selectedStatus = "active";
+                statusFilter = true;
             } else if ("inactive".equalsIgnoreCase(status)) {
-                locations = locationService.getLocationsByStatus(false);
-                request.setAttribute("status", "inactive");
-            } else {
-                locations = locationService.getAllLocations();
+                selectedStatus = "inactive";
+                statusFilter = false;
             }
+            request.setAttribute("status", selectedStatus);
         } else if (keyword != null && !keyword.trim().isEmpty()) {
-            locations = locationService.searchLocations(keyword.trim());
-            request.setAttribute("keyword", keyword.trim());
-        } else {
-            locations = locationService.getAllLocations();
+            selectedKeyword = keyword.trim();
+            request.setAttribute("keyword", selectedKeyword);
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Location> locationPage = locationService.searchLocationsPaginated(
+            selectedWarehouseId,
+            selectedType,
+            statusFilter,
+            selectedKeyword,
+            pageRequest
+        );
         
         // Get all warehouses for filter dropdown and display
         List<Warehouse> warehouses = warehouseService.getAllWarehouses();
         request.setAttribute("warehouses", warehouses);
-        
+
         // Build warehouse name map for display
+        java.util.Map<Long, String> warehouseMap = new java.util.HashMap<>();
         for (Warehouse warehouse : warehouses) {
-            request.setAttribute("warehouseName_" + warehouse.getId(), warehouse.getName());
+            warehouseMap.put(warehouse.getId(), warehouse.getName());
         }
-        
-        // Add inventory count for each location
-        for (Location location : locations) {
-            int inventoryCount = locationService.getInventoryCount(location.getId());
-            request.setAttribute("inventoryCount_" + location.getId(), inventoryCount);
-        }
-        
-        request.setAttribute("locations", locations);
+        request.setAttribute("warehouseMap", warehouseMap);
+
+        // Fetch all inventory counts in ONE query instead of N per-location queries
+        java.util.Map<Long, Integer> inventoryCountMap = locationService.getAllLocationInventoryCounts();
+        request.setAttribute("inventoryCountMap", inventoryCountMap);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("warehouseId", selectedWarehouseId != null ? String.valueOf(selectedWarehouseId) : null);
+        paginationParams.put("type", selectedType);
+        paginationParams.put("status", selectedStatus);
+        paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("locations", locationPage.getItems());
+        request.setAttribute("currentPage", locationPage.getCurrentPage());
+        request.setAttribute("totalPages", locationPage.getTotalPages());
+        request.setAttribute("pageSize", locationPage.getPageSize());
+        request.setAttribute("totalItems", locationPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/location", paginationParams));
         request.getRequestDispatcher("/WEB-INF/views/location/list.jsp").forward(request, response);
     }
     
@@ -390,6 +415,7 @@ public class LocationController extends HttpServlet {
                     location.setType(type);
                     request.setAttribute("location", location);
                     request.setAttribute("warehouse", warehouseService.getWarehouseById(location.getWarehouseId()));
+                    request.setAttribute("inventoryCount", locationService.getInventoryCount(id));
                 }
                 request.getRequestDispatcher("/WEB-INF/views/location/edit.jsp").forward(request, response);
                 return;
@@ -414,6 +440,7 @@ public class LocationController extends HttpServlet {
                     loc.setType(type);
                     request.setAttribute("location", loc);
                     request.setAttribute("warehouse", warehouseService.getWarehouseById(loc.getWarehouseId()));
+                    request.setAttribute("inventoryCount", locationService.getInventoryCount(id));
                     request.getRequestDispatcher("/WEB-INF/views/location/edit.jsp").forward(request, response);
                     return;
                 }

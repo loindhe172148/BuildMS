@@ -2,20 +2,19 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.*;
 import vn.edu.fpt.swp.model.*;
-import vn.edu.fpt.swp.util.PageRequest;
-import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * Service layer for Inbound Request Management
+ * Service layer for Outbound Request Management
  * 
- * UC-INB-001: Create Inbound Request
- * UC-INB-002: Approve Inbound Request
- * UC-INB-003: Execute Inbound Request
+ * UC-OUT-001: Approve Outbound Request
+ * UC-OUT-002: Execute Outbound Request
+ * UC-OUT-003: Create Internal Outbound Request
  */
-public class InboundService {
+public class OutboundService {
     
     private RequestDAO requestDAO;
     private RequestItemDAO requestItemDAO;
@@ -25,7 +24,16 @@ public class InboundService {
     private LocationDAO locationDAO;
     private UserDAO userDAO;
     
-    public InboundService() {
+    // Valid outbound reasons for internal requests
+    private static final List<String> VALID_REASONS = Arrays.asList(
+        "Damage/Disposal",
+        "Return to Supplier", 
+        "Sample/Demo",
+        "Adjustment",
+        "Other"
+    );
+    
+    public OutboundService() {
         this.requestDAO = new RequestDAO();
         this.requestItemDAO = new RequestItemDAO();
         this.inventoryDAO = new InventoryDAO();
@@ -36,24 +44,39 @@ public class InboundService {
     }
     
     /**
-     * UC-INB-001: Create a new inbound request
+     * UC-OUT-003: Create an internal outbound request
      * @param request Request header information
      * @param items List of request items
      * @return Created request with ID, null if failed
      */
-    public Request createInboundRequest(Request request, List<RequestItem> items) {
+    public Request createInternalOutboundRequest(Request request, List<RequestItem> items) {
         // Validation
         if (request == null || items == null || items.isEmpty()) {
             return null;
         }
         
-        // Validate destination warehouse
-        if (request.getDestinationWarehouseId() == null) {
+        // Validate source warehouse
+        if (request.getSourceWarehouseId() == null) {
             return null;
         }
         
-        Warehouse warehouse = warehouseDAO.findById(request.getDestinationWarehouseId());
+        Warehouse warehouse = warehouseDAO.findById(request.getSourceWarehouseId());
         if (warehouse == null) {
+            return null;
+        }
+        
+        // Validate reason
+        if (request.getReason() == null || request.getReason().trim().isEmpty()) {
+            return null;
+        }
+        
+        if (!VALID_REASONS.contains(request.getReason())) {
+            return null;
+        }
+        
+        // If "Other" reason, notes/description is required
+        if ("Other".equals(request.getReason()) && 
+            (request.getNotes() == null || request.getNotes().trim().isEmpty())) {
             return null;
         }
         
@@ -76,19 +99,10 @@ public class InboundService {
             if (product == null || !product.isActive()) {
                 return null; // Invalid or inactive product
             }
-            
-            // Validate location if specified
-            if (item.getLocationId() != null) {
-                Location location = locationDAO.findById(item.getLocationId());
-                if (location == null || !location.isActive() || 
-                    !location.getWarehouseId().equals(request.getDestinationWarehouseId())) {
-                    return null; // Invalid location
-                }
-            }
         }
         
         // Set request type and status
-        request.setType("Inbound");
+        request.setType("Outbound");
         request.setStatus("Created");
         
         // Create request
@@ -104,7 +118,6 @@ public class InboundService {
         
         boolean itemsCreated = requestItemDAO.createBatch(items);
         if (!itemsCreated) {
-            // TODO: Consider rollback
             return null;
         }
         
@@ -112,7 +125,7 @@ public class InboundService {
     }
     
     /**
-     * UC-INB-002: Approve an inbound request
+     * UC-OUT-001: Approve an outbound request
      * @param requestId Request ID to approve
      * @param approverId User ID of approver
      * @return true if successful
@@ -124,7 +137,7 @@ public class InboundService {
         
         // Verify request exists and is in Created status
         Request request = requestDAO.findById(requestId);
-        if (request == null || !"Created".equals(request.getStatus()) || !"Inbound".equals(request.getType())) {
+        if (request == null || !"Created".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
             return false;
         }
         
@@ -132,7 +145,7 @@ public class InboundService {
     }
     
     /**
-     * UC-INB-002: Reject an inbound request
+     * UC-OUT-001: Reject an outbound request
      * @param requestId Request ID to reject
      * @param rejectorId User ID of rejector
      * @param reason Rejection reason (required)
@@ -145,7 +158,7 @@ public class InboundService {
         
         // Verify request exists and is in Created status
         Request request = requestDAO.findById(requestId);
-        if (request == null || !"Created".equals(request.getStatus()) || !"Inbound".equals(request.getType())) {
+        if (request == null || !"Created".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
             return false;
         }
         
@@ -153,7 +166,7 @@ public class InboundService {
     }
     
     /**
-     * UC-INB-003: Start execution of an approved inbound request
+     * UC-OUT-002: Start execution of an approved outbound request
      * @param requestId Request ID
      * @return true if successful
      */
@@ -164,7 +177,7 @@ public class InboundService {
         
         // Verify request exists and is Approved
         Request request = requestDAO.findById(requestId);
-        if (request == null || !"Approved".equals(request.getStatus()) || !"Inbound".equals(request.getType())) {
+        if (request == null || !"Approved".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
             return false;
         }
         
@@ -172,15 +185,14 @@ public class InboundService {
     }
     
     /**
-     * UC-INB-003: Update received quantities for items
+     * UC-OUT-002: Update picked quantities for items
      * @param requestId Request ID
      * @param productId Product ID
-     * @param receivedQuantity Actual received quantity
-     * @param locationId Location where received (optional update)
+     * @param pickedQuantity Actual picked quantity
      * @return true if successful
      */
-    public boolean updateReceivedQuantity(Long requestId, Long productId, Integer receivedQuantity, Long locationId) {
-        if (requestId == null || productId == null || receivedQuantity == null || receivedQuantity < 0) {
+    public boolean updatePickedQuantity(Long requestId, Long productId, Integer pickedQuantity) {
+        if (requestId == null || productId == null || pickedQuantity == null || pickedQuantity < 0) {
             return false;
         }
         
@@ -190,19 +202,20 @@ public class InboundService {
             return false;
         }
         
-        // Update received quantity
-        boolean updated = requestItemDAO.updateReceivedQuantity(requestId, productId, receivedQuantity);
-        
-        // Optionally update location
-        if (updated && locationId != null) {
-            requestItemDAO.updateLocation(requestId, productId, locationId);
+        // Verify picked quantity doesn't exceed available inventory
+        Long warehouseId = request.getSourceWarehouseId();
+        if (warehouseId != null) {
+            int available = inventoryDAO.getTotalQuantityByProductAndWarehouse(productId, warehouseId);
+            if (pickedQuantity > available) {
+                return false; // Cannot pick more than available
+            }
         }
         
-        return updated;
+        return requestItemDAO.updatePickedQuantity(requestId, productId, pickedQuantity);
     }
     
     /**
-     * UC-INB-003: Complete inbound request execution
+     * UC-OUT-002: Complete outbound request execution
      * @param requestId Request ID
      * @param completedBy User ID who completed
      * @return true if successful
@@ -214,7 +227,7 @@ public class InboundService {
         
         // Verify request is InProgress
         Request request = requestDAO.findById(requestId);
-        if (request == null || !"InProgress".equals(request.getStatus()) || !"Inbound".equals(request.getType())) {
+        if (request == null || !"InProgress".equals(request.getStatus()) || !"Outbound".equals(request.getType())) {
             return false;
         }
         
@@ -224,45 +237,51 @@ public class InboundService {
             return false;
         }
         
-        // Get destination warehouse
-        Long warehouseId = request.getDestinationWarehouseId();
+        // Get source warehouse
+        Long warehouseId = request.getSourceWarehouseId();
         if (warehouseId == null) {
             return false;
         }
         
-        // Update inventory for each item
+        // Update inventory for each item (decrease)
         for (RequestItem item : items) {
-            Integer receivedQty = item.getReceivedQuantity();
-            if (receivedQty == null || receivedQty <= 0) {
-                continue; // Skip items with no received quantity
+            Integer pickedQty = item.getPickedQuantity();
+            if (pickedQty == null || pickedQty <= 0) {
+                continue; // Skip items with no picked quantity
             }
             
-            Long locationId = item.getLocationId();
-            if (locationId == null) {
-                // Need a default location - get first active location in warehouse
-                List<Location> locations = locationDAO.findByWarehouse(warehouseId);
-                for (Location loc : locations) {
-                    if (loc.isActive()) {
-                        locationId = loc.getId();
-                        break;
+            // Find inventory record to decrease - take from first available location
+            List<Inventory> inventories = inventoryDAO.findByProduct(item.getProductId());
+            int remainingToDecrease = pickedQty;
+            
+            for (Inventory inv : inventories) {
+                if (!inv.getWarehouseId().equals(warehouseId)) {
+                    continue; // Only from source warehouse
+                }
+                
+                if (remainingToDecrease <= 0) {
+                    break;
+                }
+                
+                int available = inv.getQuantity();
+                int toDecrease = Math.min(available, remainingToDecrease);
+                
+                if (toDecrease > 0) {
+                    boolean decreased = inventoryDAO.decreaseQuantity(
+                        item.getProductId(), 
+                        warehouseId, 
+                        inv.getLocationId(), 
+                        toDecrease
+                    );
+                    
+                    if (decreased) {
+                        remainingToDecrease -= toDecrease;
                     }
                 }
-                if (locationId == null) {
-                    return false; // No valid location
-                }
             }
             
-            // Increase inventory
-            boolean inventoryUpdated = inventoryDAO.increaseQuantity(
-                item.getProductId(), 
-                warehouseId, 
-                locationId, 
-                receivedQty
-            );
-            
-            if (!inventoryUpdated) {
-                // TODO: Consider rollback
-                return false;
+            if (remainingToDecrease > 0) {
+                // Not enough inventory - but continue anyway (discrepancy logged)
             }
         }
         
@@ -271,44 +290,40 @@ public class InboundService {
     }
     
     /**
-     * Get all inbound requests
-     * @return List of inbound requests
+     * Get all outbound requests
+     * @return List of outbound requests
      */
-    public List<Request> getAllInboundRequests() {
-        return requestDAO.findByType("Inbound");
+    public List<Request> getAllOutboundRequests() {
+        return requestDAO.findByType("Outbound");
     }
     
     /**
-     * Get inbound requests by status
+     * Get outbound requests by status
      * @param status Request status
      * @return List of matching requests
      */
-    public List<Request> getInboundRequestsByStatus(String status) {
-        return requestDAO.findByTypeAndStatus("Inbound", status);
+    public List<Request> getOutboundRequestsByStatus(String status) {
+        return requestDAO.findByTypeAndStatus("Outbound", status);
     }
     
     /**
-     * Search inbound requests with filters
+     * Search outbound requests with filters
      * @param status Status filter
      * @param warehouseId Warehouse filter
      * @return List of matching requests
      */
-    public List<Request> searchInboundRequests(String status, Long warehouseId) {
-        return requestDAO.search("Inbound", status, warehouseId);
-    }
-
-    public PageResult<Request> searchInboundRequestsPaginated(String status, Long warehouseId, PageRequest pageRequest) {
-        return requestDAO.searchPaginated("Inbound", status, warehouseId, pageRequest);
+    public List<Request> searchOutboundRequests(String status, Long warehouseId) {
+        return requestDAO.search("Outbound", status, warehouseId);
     }
     
     /**
      * Get request by ID
      * @param requestId Request ID
-     * @return Request if found and is Inbound type
+     * @return Request if found and is Outbound type
      */
     public Request getRequestById(Long requestId) {
         Request request = requestDAO.findById(requestId);
-        if (request != null && "Inbound".equals(request.getType())) {
+        if (request != null && "Outbound".equals(request.getType())) {
             return request;
         }
         return null;
@@ -321,6 +336,16 @@ public class InboundService {
      */
     public List<RequestItem> getRequestItems(Long requestId) {
         return requestItemDAO.findByRequestId(requestId);
+    }
+    
+    /**
+     * Get inventory quantity for a product in a warehouse
+     * @param productId Product ID
+     * @param warehouseId Warehouse ID
+     * @return Total quantity available
+     */
+    public int getInventoryQuantity(Long productId, Long warehouseId) {
+        return inventoryDAO.getTotalQuantityByProductAndWarehouse(productId, warehouseId);
     }
     
     /**
@@ -357,14 +382,6 @@ public class InboundService {
     public List<Warehouse> getAllWarehouses() {
         return warehouseDAO.getAll();
     }
-
-    /**
-     * Get all users — used for batch display on the list page.
-     * @return List of all users
-     */
-    public List<User> getAllUsers() {
-        return userDAO.getAll();
-    }
     
     /**
      * Get all active products
@@ -384,11 +401,10 @@ public class InboundService {
     }
     
     /**
-     * Get location by ID
-     * @param locationId Location ID
-     * @return Location if found
+     * Get valid outbound reasons
+     * @return List of valid reasons
      */
-    public Location getLocationById(Long locationId) {
-        return locationDAO.findById(locationId);
+    public List<String> getValidReasons() {
+        return new ArrayList<>(VALID_REASONS);
     }
 }

@@ -5,7 +5,9 @@ import vn.edu.fpt.swp.util.DBConnection;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Data Access Object for Inventory entity
@@ -399,6 +401,30 @@ public class InventoryDAO {
         return inventories;
     }
     
+    /**
+     * Get total inventory quantity per product across all locations and warehouses.
+     * Single query — used to avoid N+1 calls on the product list page.
+     *
+     * @return Map of productId -> total quantity (only products with stock > 0 are included)
+     */
+    public Map<Long, Integer> getAllProductTotalQuantities() {
+        Map<Long, Integer> result = new HashMap<>();
+        String sql = "SELECT productId, SUM(quantity) AS totalQty FROM Inventory GROUP BY productId";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                result.put(rs.getLong("productId"), rs.getInt("totalQty"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
     /**
      * Map ResultSet to Inventory object
      */
