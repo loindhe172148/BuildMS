@@ -7,15 +7,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.*;
-import vn.edu.fpt.swp.service.SalesOrderService;
+import vn.edu.fpt.swp.service.TransferService;
 import vn.edu.fpt.swp.util.PageRequest;
 import vn.edu.fpt.swp.util.PageResult;
 import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -23,22 +21,25 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Controller for Sales Order Management
+ * Controller for Inter-Warehouse Transfer Management
  * 
- * UC-SO-001: Create Sales Order
- * UC-SO-002: Confirm Sales Order
- * UC-SO-003: Generate Outbound Request from Sales Order
- * UC-SO-004: Cancel Sales Order
+ * UC-TRF-001: Create Inter-Warehouse Transfer Request
+ * UC-TRF-002: Approve/Reject Transfer Request (destination warehouse)
+ * UC-TRF-003: Execute Transfer Outbound (source warehouse)
+ * UC-TRF-004: Execute Transfer Inbound & Complete (destination warehouse)
+ *
+ * Cross-warehouse collaborative workflow:
+ * Source WH creates → Dest WH approves → Source WH outbound → Dest WH inbound & completes
  */
-@WebServlet("/sales-order")
-public class SalesOrderController extends HttpServlet {
+@WebServlet("/transfer")
+public class TransferController extends HttpServlet {
     
-    private SalesOrderService salesOrderService;
+    private TransferService transferService;
     
     @Override
     public void init() throws ServletException {
         super.init();
-        salesOrderService = new SalesOrderService();
+        transferService = new TransferService();
     }
     
     @Override
@@ -52,22 +53,22 @@ public class SalesOrderController extends HttpServlet {
         
         switch (action) {
             case "list":
-                listOrders(request, response);
+                listTransfers(request, response);
                 break;
             case "create":
                 showCreateForm(request, response);
                 break;
             case "view":
-                viewOrder(request, response);
+                viewTransfer(request, response);
                 break;
-            case "generate-outbound":
-                showGenerateOutboundForm(request, response);
+            case "execute-outbound":
+                showOutboundExecutionForm(request, response);
                 break;
-            case "cancel":
-                showCancelForm(request, response);
+            case "execute-inbound":
+                showInboundExecutionForm(request, response);
                 break;
             default:
-                listOrders(request, response);
+                listTransfers(request, response);
         }
     }
     
@@ -77,130 +78,215 @@ public class SalesOrderController extends HttpServlet {
         String action = request.getParameter("action");
         
         if (action == null || action.isEmpty()) {
-            response.sendRedirect(request.getContextPath() + "/sales-order");
+            response.sendRedirect(request.getContextPath() + "/transfer");
             return;
         }
         
         switch (action) {
             case "create":
-                createOrder(request, response);
+                createTransfer(request, response);
                 break;
-            case "confirm":
-                confirmOrder(request, response);
+            case "approve":
+                approveTransfer(request, response);
                 break;
-            case "generate-outbound":
-                generateOutbound(request, response);
+            case "reject":
+                rejectTransfer(request, response);
                 break;
-            case "cancel":
-                cancelOrder(request, response);
+            case "start-outbound":
+                startOutbound(request, response);
+                break;
+            case "complete-outbound":
+                completeOutbound(request, response);
+                break;
+            case "start-inbound":
+                startInbound(request, response);
+                break;
+            case "complete-inbound":
+                completeInbound(request, response);
                 break;
             default:
-                response.sendRedirect(request.getContextPath() + "/sales-order");
+                response.sendRedirect(request.getContextPath() + "/transfer");
         }
     }
     
     /**
-     * List all sales orders with optional status filter
+     * List all transfer requests with optional status filter
      */
-    private void listOrders(HttpServletRequest request, HttpServletResponse response)
+    private void listTransfers(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         String status = request.getParameter("status");
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
 
         String selectedStatus = status != null ? status.trim() : null;
         if (selectedStatus != null && selectedStatus.isEmpty()) {
             selectedStatus = null;
         }
 
+        Long userWarehouseId = currentUser.getWarehouseId();
+        Long warehouseFilter = null;
+        if (("Manager".equals(currentUser.getRole()) || "Staff".equals(currentUser.getRole()))
+                && userWarehouseId != null) {
+            warehouseFilter = userWarehouseId;
+        }
+
         PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
-        PageResult<SalesOrder> orderPage = salesOrderService.getSalesOrdersPaginated(selectedStatus, pageRequest);
-        List<SalesOrder> orders = orderPage.getItems();
+        PageResult<Request> transferPage = transferService.getTransferRequestsPaginated(selectedStatus, warehouseFilter, pageRequest);
+        List<Request> transfers = transferPage.getItems();
         
-        // Build lookup maps once — avoids N+1 DB calls per order
-        java.util.Map<Long, Customer> customerMap = new java.util.HashMap<>();
-        for (Customer c : salesOrderService.getAllCustomers()) {
-            customerMap.put(c.getId(), c);
+        // Build lookup maps once — avoids N+1 DB calls per transfer
+        java.util.Map<Long, Warehouse> warehouseMap = new java.util.HashMap<>();
+        for (Warehouse w : transferService.getAllWarehouses()) {
+            warehouseMap.put(w.getId(), w);
         }
         java.util.Map<Long, User> userMap = new java.util.HashMap<>();
-        for (User u : salesOrderService.getAllUsers()) {
+        for (User u : transferService.getAllUsers()) {
             userMap.put(u.getId(), u);
         }
 
-        // Enrich with customer info
-        List<Map<String, Object>> ordersWithDetails = new ArrayList<>();
-        for (SalesOrder order : orders) {
-            Map<String, Object> orderData = new HashMap<>();
-            orderData.put("order", order);
-            orderData.put("customer", customerMap.get(order.getCustomerId()));
-            orderData.put("creator", userMap.get(order.getCreatedBy()));
-            ordersWithDetails.add(orderData);
+        // Enrich with warehouse info and per-row access flags
+        boolean isAdmin = "Admin".equals(currentUser.getRole());
+        
+        List<Map<String, Object>> transfersWithDetails = new ArrayList<>();
+        for (Request transfer : transfers) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("request", transfer);
+            data.put("sourceWarehouse", warehouseMap.get(transfer.getSourceWarehouseId()));
+            data.put("destinationWarehouse", warehouseMap.get(transfer.getDestinationWarehouseId()));
+            data.put("creator", userMap.get(transfer.getCreatedBy()));
+            // Per-row warehouse flags for action visibility
+            data.put("isAtSourceWH", userWarehouseId != null 
+                && userWarehouseId.equals(transfer.getSourceWarehouseId()));
+            data.put("isAtDestWH", userWarehouseId != null 
+                && userWarehouseId.equals(transfer.getDestinationWarehouseId()));
+            data.put("isAdmin", isAdmin);
+            transfersWithDetails.add(data);
         }
         
-        request.setAttribute("orders", ordersWithDetails);
+        request.setAttribute("transfers", transfersWithDetails);
         request.setAttribute("selectedStatus", selectedStatus);
-        request.setAttribute("currentPage", orderPage.getCurrentPage());
-        request.setAttribute("totalPages", orderPage.getTotalPages());
-        request.setAttribute("pageSize", orderPage.getPageSize());
-        request.setAttribute("totalItems", orderPage.getTotalItems());
+        request.setAttribute("currentPage", transferPage.getCurrentPage());
+        request.setAttribute("totalPages", transferPage.getTotalPages());
+        request.setAttribute("pageSize", transferPage.getPageSize());
+        request.setAttribute("totalItems", transferPage.getTotalItems());
 
         Map<String, String> paginationParams = new LinkedHashMap<>();
         paginationParams.put("status", selectedStatus);
         paginationParams.put("size", String.valueOf(pageRequest.getSize()));
-        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/sales-order", paginationParams));
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/transfer", paginationParams));
         
-        request.getRequestDispatcher("/WEB-INF/views/sales-order/list.jsp")
+        request.getRequestDispatcher("/WEB-INF/views/transfer/list.jsp")
                .forward(request, response);
     }
     
     /**
-     * UC-SO-001: Show create order form
+     * UC-TRF-001: Show create transfer form
      */
     private void showCreateForm(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        
-        // Get active customers
-        List<Customer> customers = salesOrderService.getActiveCustomers();
-        if (customers.isEmpty()) {
-            request.setAttribute("errorMessage", "No customers available. Please create a customer first.");
-        }
-        request.setAttribute("customers", customers);
-        
-        // Get active products
-        List<Product> products = salesOrderService.getActiveProducts();
-        request.setAttribute("products", products);
-        
-        request.getRequestDispatcher("/WEB-INF/views/sales-order/create.jsp")
-               .forward(request, response);
-    }
-    
-    /**
-     * UC-SO-001: Create sales order
-     */
-    private void createOrder(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
+        // Only Manager/Admin can create transfers
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Managers can create transfer requests");
+            listTransfers(request, response);
+            return;
+        }
+        
+        List<Warehouse> warehouses = transferService.getAllWarehouses();
+        request.setAttribute("warehouses", warehouses);
+        
+        // Manager: pre-select and lock source warehouse to their assigned warehouse
+        boolean isManager = "Manager".equals(currentUser.getRole());
+        if (isManager) {
+            Long managerWarehouseId = currentUser.getWarehouseId();
+            if (managerWarehouseId == null) {
+                request.setAttribute("errorMessage", "You are not assigned to any warehouse.");
+                listTransfers(request, response);
+                return;
+            }
+            request.setAttribute("lockedSourceWarehouseId", managerWarehouseId);
+        }
+        request.setAttribute("isManager", isManager);
+        
+        // If source warehouse selected, load products
+        String sourceWarehouseIdStr = request.getParameter("sourceWarehouseId");
+        // For Manager, auto-select their assigned warehouse if not already in params
+        if (isManager && (sourceWarehouseIdStr == null || sourceWarehouseIdStr.isEmpty())) {
+            sourceWarehouseIdStr = String.valueOf(currentUser.getWarehouseId());
+        }
+        if (sourceWarehouseIdStr != null && !sourceWarehouseIdStr.isEmpty()) {
+            Long sourceWarehouseId = Long.parseLong(sourceWarehouseIdStr);
+            List<Map<String, Object>> products = 
+                transferService.getProductsWithInventoryAtWarehouse(sourceWarehouseId);
+            request.setAttribute("products", products);
+            request.setAttribute("selectedSourceWarehouseId", sourceWarehouseId);
+        }
+        
+        request.getRequestDispatcher("/WEB-INF/views/transfer/create.jsp")
+               .forward(request, response);
+    }
+    
+    /**
+     * UC-TRF-001: Create transfer request
+     */
+    private void createTransfer(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Manager/Admin can create transfers
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Managers can create transfer requests");
+            listTransfers(request, response);
+            return;
+        }
+        
         try {
-            // Parse customer ID
-            Long customerId = Long.parseLong(request.getParameter("customerId"));
+            Long sourceWarehouseId = Long.parseLong(request.getParameter("sourceWarehouseId"));
+            Long destinationWarehouseId = Long.parseLong(request.getParameter("destinationWarehouseId"));
+            String notes = request.getParameter("notes");
             
-            // Parse order items
+            // Manager can only use their assigned warehouse as source
+            if ("Manager".equals(currentUser.getRole())) {
+                Long managerWarehouseId = currentUser.getWarehouseId();
+                if (managerWarehouseId == null || !managerWarehouseId.equals(sourceWarehouseId)) {
+                    request.setAttribute("errorMessage", "You can only create transfer requests from your assigned warehouse.");
+                    showCreateForm(request, response);
+                    return;
+                }
+            }
+            
+            // Validate different warehouses
+            if (sourceWarehouseId.equals(destinationWarehouseId)) {
+                request.setAttribute("errorMessage", "Source and destination warehouses must be different");
+                showCreateForm(request, response);
+                return;
+            }
+            
+            // Parse items
             String[] productIds = request.getParameterValues("productId[]");
             String[] quantities = request.getParameterValues("quantity[]");
-            
+            String[] sourceLocationIds = request.getParameterValues("sourceLocationId[]");
+
             if (productIds == null || productIds.length == 0) {
                 request.setAttribute("errorMessage", "At least one item is required");
                 showCreateForm(request, response);
                 return;
             }
-            
-            // Build items list
-            List<SalesOrderItem> items = new ArrayList<>();
+
+            List<RequestItem> items = new ArrayList<>();
             for (int i = 0; i < productIds.length; i++) {
                 if (productIds[i] != null && !productIds[i].isEmpty()) {
-                    SalesOrderItem item = new SalesOrderItem();
+                    RequestItem item = new RequestItem();
                     item.setProductId(Long.parseLong(productIds[i]));
                     item.setQuantity(Integer.parseInt(quantities[i]));
+                    // Optional: set source location if selected
+                    if (sourceLocationIds != null && i < sourceLocationIds.length
+                            && sourceLocationIds[i] != null && !sourceLocationIds[i].isEmpty()) {
+                        item.setSourceLocationId(Long.parseLong(sourceLocationIds[i]));
+                    }
                     items.add(item);
                 }
             }
@@ -211,44 +297,22 @@ public class SalesOrderController extends HttpServlet {
                 return;
             }
             
-            // Create order
-            SalesOrder order = new SalesOrder();
-            order.setCustomerId(customerId);
-            order.setCreatedBy(currentUser.getId());
-            
-            // Parse optional fields: orderDate, requiredDeliveryDate, notes
-            String orderDateStr = request.getParameter("orderDate");
-            if (orderDateStr != null && !orderDateStr.trim().isEmpty()) {
-                try {
-                    order.setOrderDate(LocalDateTime.parse(orderDateStr + "T00:00:00"));
-                } catch (DateTimeParseException ex) {
-                    // Ignore parse error, leave null (defaults to now in DB)
-                }
+            // Parse optional expected date
+            String expectedDateStr = request.getParameter("expectedDate");
+            LocalDateTime expectedDate = null;
+            if (expectedDateStr != null && !expectedDateStr.trim().isEmpty()) {
+                expectedDate = LocalDateTime.parse(expectedDateStr + "T00:00:00");
             }
             
-            String deliveryDateStr = request.getParameter("requiredDeliveryDate");
-            if (deliveryDateStr != null && !deliveryDateStr.trim().isEmpty()) {
-                try {
-                    order.setRequiredDeliveryDate(LocalDateTime.parse(deliveryDateStr + "T00:00:00"));
-                } catch (DateTimeParseException ex) {
-                    // Ignore parse error, leave null
-                }
-            }
+            Request transfer = transferService.createTransferRequest(
+                sourceWarehouseId, destinationWarehouseId, currentUser.getId(), items, notes, expectedDate);
             
-            String notes = request.getParameter("notes");
-            if (notes != null && !notes.trim().isEmpty()) {
-                order.setNotes(notes.trim());
-            }
-            
-            SalesOrder createdOrder = salesOrderService.createSalesOrder(order, items);
-            
-            if (createdOrder != null) {
-                request.getSession().setAttribute("successMessage", 
-                    "Sales Order " + createdOrder.getOrderNo() + " created successfully");
+            if (transfer != null) {
+                request.getSession().setAttribute("successMessage", "Transfer request created successfully");
                 response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?action=view&id=" + createdOrder.getId());
+                    "/transfer?action=view&id=" + transfer.getId());
             } else {
-                request.setAttribute("errorMessage", "Failed to create sales order. Please check your inputs.");
+                request.setAttribute("errorMessage", "Failed to create transfer request");
                 showCreateForm(request, response);
             }
             
@@ -259,249 +323,499 @@ public class SalesOrderController extends HttpServlet {
     }
     
     /**
-     * View order details
+     * View transfer details
      */
-    private void viewOrder(HttpServletRequest request, HttpServletResponse response)
+    private void viewTransfer(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
-            Long orderId = Long.parseLong(request.getParameter("id"));
+            Long requestId = Long.parseLong(request.getParameter("id"));
             
-            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
-            if (order == null) {
-                request.setAttribute("errorMessage", "Sales order not found");
-                listOrders(request, response);
+            Request transfer = transferService.getTransferRequestById(requestId);
+            if (transfer == null) {
+                request.setAttribute("errorMessage", "Transfer request not found");
+                listTransfers(request, response);
                 return;
             }
             
-            // Get related info
-            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
-            User creator = salesOrderService.getUserById(order.getCreatedBy());
-            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
-            List<Request> relatedRequests = salesOrderService.getRelatedRequests(orderId);
-            
-            request.setAttribute("order", order);
-            request.setAttribute("customer", customer);
-            request.setAttribute("creator", creator);
-            request.setAttribute("items", items);
-            request.setAttribute("relatedRequests", relatedRequests);
-            
-            // Consume flash message from session
-            HttpSession viewSession = request.getSession(false);
-            if (viewSession != null) {
-                String flashMsg = (String) viewSession.getAttribute("successMessage");
-                if (flashMsg != null) {
-                    request.setAttribute("successMessage", flashMsg);
-                    viewSession.removeAttribute("successMessage");
+            // Manager/Staff can only view transfers related to their warehouse
+            HttpSession session = request.getSession(false);
+            User currentUser = (User) session.getAttribute("user");
+            if ("Manager".equals(currentUser.getRole()) || "Staff".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (userWarehouseId == null
+                        || (!userWarehouseId.equals(transfer.getSourceWarehouseId())
+                            && !userWarehouseId.equals(transfer.getDestinationWarehouseId()))) {
+                    request.setAttribute("errorMessage", "You don't have permission to view this transfer.");
+                    listTransfers(request, response);
+                    return;
                 }
             }
             
-            request.getRequestDispatcher("/WEB-INF/views/sales-order/view.jsp")
+            Warehouse source = transferService.getWarehouseById(transfer.getSourceWarehouseId());
+            Warehouse dest = transferService.getWarehouseById(transfer.getDestinationWarehouseId());
+            User creator = transferService.getUserById(transfer.getCreatedBy());
+            List<Map<String, Object>> items = transferService.getTransferItemsWithDetails(requestId);
+            
+            request.setAttribute("transfer", transfer);
+            request.setAttribute("sourceWarehouse", source);
+            request.setAttribute("destinationWarehouse", dest);
+            request.setAttribute("creator", creator);
+            request.setAttribute("items", items);
+            
+            // Pass warehouse flags for the JSP to control button visibility
+            Long userWarehouseId = currentUser.getWarehouseId();
+            boolean isAdmin = "Admin".equals(currentUser.getRole());
+            boolean isAtSourceWH = userWarehouseId != null 
+                && userWarehouseId.equals(transfer.getSourceWarehouseId());
+            boolean isAtDestWH = userWarehouseId != null 
+                && userWarehouseId.equals(transfer.getDestinationWarehouseId());
+            request.setAttribute("isAtSourceWH", isAtSourceWH);
+            request.setAttribute("isAtDestWH", isAtDestWH);
+            request.setAttribute("isAdmin", isAdmin);
+            
+            // Check success message from session flash
+            HttpSession viewSession = request.getSession(false);
+            if (viewSession != null && viewSession.getAttribute("successMessage") != null) {
+                request.setAttribute("successMessage", viewSession.getAttribute("successMessage"));
+                viewSession.removeAttribute("successMessage");
+            }
+            
+            request.getRequestDispatcher("/WEB-INF/views/transfer/view.jsp")
                    .forward(request, response);
                    
         } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid order ID");
-            listOrders(request, response);
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
         }
     }
     
     /**
-     * UC-SO-002: Confirm sales order
+     * UC-TRF-002: Approve transfer request
+     * Only destination warehouse Manager or Admin can approve.
      */
-    private void confirmOrder(HttpServletRequest request, HttpServletResponse response)
+    private void approveTransfer(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
-        try {
-            Long orderId = Long.parseLong(request.getParameter("id"));
-            
-            boolean success = salesOrderService.confirmOrder(orderId, currentUser.getId());
-            
-            if (success) {
-                request.getSession().setAttribute("successMessage", "Sales order confirmed successfully");
-                response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?action=view&id=" + orderId);
-            } else {
-                request.setAttribute("errorMessage", "Failed to confirm order. Order must be in Draft status.");
-                viewOrder(request, response);
-            }
-            
-        } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid order ID");
-            listOrders(request, response);
-        }
-    }
-    
-    /**
-     * UC-SO-003: Show generate outbound form
-     */
-    private void showGenerateOutboundForm(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
-        
-        // Only Manager/Admin can generate outbound
         if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Managers can generate outbound requests");
-            listOrders(request, response);
+            request.setAttribute("errorMessage", "Only Managers and Admins can approve transfers");
+            listTransfers(request, response);
             return;
         }
         
         try {
-            Long orderId = Long.parseLong(request.getParameter("id"));
+            Long requestId = Long.parseLong(request.getParameter("id"));
             
-            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
-            if (order == null || !"Confirmed".equals(order.getStatus())) {
-                request.setAttribute("errorMessage", "Order must be in Confirmed status");
-                listOrders(request, response);
+            // Manager can only approve transfers destined to their warehouse
+            if ("Manager".equals(currentUser.getRole())) {
+                Request transfer = transferService.getTransferRequestById(requestId);
+                Long managerWarehouseId = currentUser.getWarehouseId();
+                if (transfer == null || managerWarehouseId == null
+                        || !managerWarehouseId.equals(transfer.getDestinationWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only the destination warehouse Manager can approve this transfer.");
+                    listTransfers(request, response);
+                    return;
+                }
+            }
+            
+            boolean success = transferService.approveTransfer(requestId, currentUser.getId());
+            
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Transfer approved successfully");
+                response.sendRedirect(request.getContextPath() + 
+                    "/transfer?action=view&id=" + requestId);
+            } else {
+                request.setAttribute("errorMessage", "Failed to approve transfer. Only transfers with status 'Created' can be approved.");
+                viewTransfer(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
+        }
+    }
+    
+    /**
+     * UC-TRF-002: Reject transfer request
+     * Only destination warehouse Manager or Admin can reject.
+     */
+    private void rejectTransfer(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Managers and Admins can reject transfers");
+            listTransfers(request, response);
+            return;
+        }
+        
+        try {
+            Long requestId = Long.parseLong(request.getParameter("id"));
+            String reason = request.getParameter("reason");
+            
+            if (reason == null || reason.trim().isEmpty()) {
+                request.setAttribute("errorMessage", "Rejection reason is required");
+                viewTransfer(request, response);
                 return;
             }
             
-            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
-            List<Map<String, Object>> items = salesOrderService.getOrderItemsWithDetails(orderId);
-            List<Warehouse> warehouses = salesOrderService.getAllWarehouses();
-            
-            request.setAttribute("order", order);
-            request.setAttribute("customer", customer);
-            request.setAttribute("items", items);
-            request.setAttribute("warehouses", warehouses);
-            
-            // If warehouse selected, check availability
-            String warehouseIdStr = request.getParameter("warehouseId");
-            if (warehouseIdStr != null && !warehouseIdStr.isEmpty()) {
-                Long warehouseId = Long.parseLong(warehouseIdStr);
-                List<Map<String, Object>> availability = 
-                    salesOrderService.checkInventoryAvailability(orderId, warehouseId);
-                request.setAttribute("availability", availability);
-                request.setAttribute("selectedWarehouseId", warehouseId);
+            // Manager can only reject transfers destined to their warehouse
+            if ("Manager".equals(currentUser.getRole())) {
+                Request transfer = transferService.getTransferRequestById(requestId);
+                Long managerWarehouseId = currentUser.getWarehouseId();
+                if (transfer == null || managerWarehouseId == null
+                        || !managerWarehouseId.equals(transfer.getDestinationWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only the destination warehouse Manager can reject this transfer.");
+                    listTransfers(request, response);
+                    return;
+                }
             }
             
-            request.getRequestDispatcher("/WEB-INF/views/sales-order/generate-outbound.jsp")
-                   .forward(request, response);
-                   
+            boolean success = transferService.rejectTransfer(requestId, currentUser.getId(), reason);
+            
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Transfer rejected successfully");
+                response.sendRedirect(request.getContextPath() + "/transfer");
+            } else {
+                request.setAttribute("errorMessage", "Failed to reject transfer");
+                viewTransfer(request, response);
+            }
+            
         } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid order ID");
-            listOrders(request, response);
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
         }
     }
     
     /**
-     * UC-SO-003: Generate outbound request
+     * UC-TRF-003: Show outbound execution form
+     * Only source warehouse Staff/Manager or Admin can execute outbound.
      */
-    private void generateOutbound(HttpServletRequest request, HttpServletResponse response)
+    private void showOutboundExecutionForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            Long requestId = Long.parseLong(request.getParameter("id"));
+            
+            // Check success message from session flash
+            HttpSession outSession = request.getSession(false);
+            if (outSession != null && outSession.getAttribute("successMessage") != null) {
+                request.setAttribute("successMessage", outSession.getAttribute("successMessage"));
+                outSession.removeAttribute("successMessage");
+            }
+            
+            Request transfer = transferService.getTransferRequestById(requestId);
+            if (transfer == null) {
+                request.setAttribute("errorMessage", "Transfer request not found");
+                listTransfers(request, response);
+                return;
+            }
+            
+            // Verify user is at source warehouse (or Admin)
+            User currentUser = (User) request.getSession(false).getAttribute("user");
+            if (!"Admin".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (userWarehouseId == null || !userWarehouseId.equals(transfer.getSourceWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only source warehouse staff can execute transfer outbound.");
+                    viewTransfer(request, response);
+                    return;
+                }
+            }
+            
+            // Must be Approved or InProgress
+            if (!"Approved".equals(transfer.getStatus()) && !"InProgress".equals(transfer.getStatus())) {
+                request.setAttribute("errorMessage", "Transfer must be approved before execution");
+                viewTransfer(request, response);
+                return;
+            }
+            
+            Warehouse source = transferService.getWarehouseById(transfer.getSourceWarehouseId());
+            Warehouse dest = transferService.getWarehouseById(transfer.getDestinationWarehouseId());
+            List<Map<String, Object>> availability = transferService.checkTransferAvailability(requestId);
+            
+            request.setAttribute("transfer", transfer);
+            request.setAttribute("sourceWarehouse", source);
+            request.setAttribute("destinationWarehouse", dest);
+            request.setAttribute("availability", availability);
+            
+            request.getRequestDispatcher("/WEB-INF/views/transfer/execute-outbound.jsp")
+                   .forward(request, response);
+                   
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
+        }
+    }
+    
+    /**
+     * UC-TRF-003: Start outbound execution
+     */
+    private void startOutbound(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            Long requestId = Long.parseLong(request.getParameter("id"));
+            
+            // Verify user is at source warehouse (or Admin)
+            User currentUser = (User) request.getSession(false).getAttribute("user");
+            Request transfer = transferService.getTransferRequestById(requestId);
+            if (!"Admin".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (transfer == null || userWarehouseId == null 
+                        || !userWarehouseId.equals(transfer.getSourceWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only source warehouse staff can start transfer outbound.");
+                    listTransfers(request, response);
+                    return;
+                }
+            }
+            
+            boolean success = transferService.startOutboundExecution(requestId);
+            
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Outbound picking started");
+                response.sendRedirect(request.getContextPath() + 
+                    "/transfer?action=execute-outbound&id=" + requestId);
+            } else {
+                request.setAttribute("errorMessage", "Failed to start outbound execution");
+                showOutboundExecutionForm(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
+        }
+    }
+    
+    /**
+     * UC-TRF-003: Complete outbound execution
+     */
+    private void completeOutbound(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
-        // Only Manager/Admin can generate outbound
-        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Managers can generate outbound requests");
-            listOrders(request, response);
-            return;
-        }
-        
         try {
-            Long orderId = Long.parseLong(request.getParameter("id"));
-            Long warehouseId = Long.parseLong(request.getParameter("warehouseId"));
+            Long requestId = Long.parseLong(request.getParameter("id"));
             
-            // Parse quantities (optional custom quantities)
-            Map<Long, Integer> quantities = new HashMap<>();
+            // Verify user is at source warehouse (or Admin)
+            Request transferCheck = transferService.getTransferRequestById(requestId);
+            if (!"Admin".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (transferCheck == null || userWarehouseId == null 
+                        || !userWarehouseId.equals(transferCheck.getSourceWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only source warehouse staff can complete transfer outbound.");
+                    listTransfers(request, response);
+                    return;
+                }
+            }
+            
+            // Parse per-item picked quantities from form
             String[] productIds = request.getParameterValues("productId[]");
-            String[] qtyValues = request.getParameterValues("fulfillQuantity[]");
+            String[] pickedQtys = request.getParameterValues("pickedQty[]");
             
-            if (productIds != null && qtyValues != null) {
+            Map<Long, Integer> pickedQuantities = new HashMap<>();
+            if (productIds != null && pickedQtys != null && productIds.length == pickedQtys.length) {
                 for (int i = 0; i < productIds.length; i++) {
-                    Long productId = Long.parseLong(productIds[i]);
-                    Integer qty = Integer.parseInt(qtyValues[i]);
-                    if (qty > 0) {
-                        quantities.put(productId, qty);
+                    if (productIds[i] != null && !productIds[i].isEmpty()
+                            && pickedQtys[i] != null && !pickedQtys[i].isEmpty()) {
+                        pickedQuantities.put(Long.parseLong(productIds[i]), Integer.parseInt(pickedQtys[i]));
                     }
                 }
             }
             
-            Request outboundRequest = salesOrderService.generateOutboundRequest(
-                orderId, warehouseId, currentUser.getId(), 
-                quantities.isEmpty() ? null : quantities);
+            boolean success = transferService.completeOutboundExecution(requestId, currentUser.getId(), pickedQuantities);
             
-            if (outboundRequest != null) {
-                request.getSession().setAttribute("successMessage", 
-                    "Outbound request " + outboundRequest.getId() + " generated successfully");
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Outbound completed. Goods are now in transit");
                 response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?action=view&id=" + orderId);
+                    "/transfer?action=view&id=" + requestId);
             } else {
-                request.setAttribute("errorMessage", "Failed to generate outbound request");
-                showGenerateOutboundForm(request, response);
+                request.setAttribute("errorMessage", "Failed to complete outbound");
+                showOutboundExecutionForm(request, response);
             }
             
         } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid input");
-            listOrders(request, response);
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
         }
     }
     
     /**
-     * UC-SO-004: Show cancel order form
+     * UC-TRF-004: Show inbound execution form
+     * Only destination warehouse Staff/Manager or Admin can execute inbound.
      */
-    private void showCancelForm(HttpServletRequest request, HttpServletResponse response)
+    private void showInboundExecutionForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         try {
-            Long orderId = Long.parseLong(request.getParameter("id"));
+            Long requestId = Long.parseLong(request.getParameter("id"));
             
-            SalesOrder order = salesOrderService.getSalesOrderById(orderId);
-            if (order == null) {
-                request.setAttribute("errorMessage", "Sales order not found");
-                listOrders(request, response);
+            // Check success message from session flash
+            HttpSession execSession = request.getSession(false);
+            if (execSession != null && execSession.getAttribute("successMessage") != null) {
+                request.setAttribute("successMessage", execSession.getAttribute("successMessage"));
+                execSession.removeAttribute("successMessage");
+            }
+            
+            Request transfer = transferService.getTransferRequestById(requestId);
+            if (transfer == null) {
+                request.setAttribute("errorMessage", "Transfer request not found");
+                listTransfers(request, response);
                 return;
             }
             
-            Map<String, Object> cancellationStatus = salesOrderService.checkCancellationStatus(orderId);
+            // Verify user is at destination warehouse (or Admin)
+            User currentUser = (User) request.getSession(false).getAttribute("user");
+            if (!"Admin".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (userWarehouseId == null || !userWarehouseId.equals(transfer.getDestinationWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only destination warehouse staff can execute transfer inbound.");
+                    viewTransfer(request, response);
+                    return;
+                }
+            }
             
-            Customer customer = salesOrderService.getCustomerById(order.getCustomerId());
+            // Must be InTransit or Receiving
+            if (!"InTransit".equals(transfer.getStatus()) && !"Receiving".equals(transfer.getStatus())) {
+                request.setAttribute("errorMessage", "Outbound must be completed before inbound execution");
+                viewTransfer(request, response);
+                return;
+            }
             
-            request.setAttribute("order", order);
-            request.setAttribute("customer", customer);
-            request.setAttribute("cancellationStatus", cancellationStatus);
+            Warehouse source = transferService.getWarehouseById(transfer.getSourceWarehouseId());
+            Warehouse dest = transferService.getWarehouseById(transfer.getDestinationWarehouseId());
+            List<Map<String, Object>> items = transferService.getTransferItemsWithDetails(requestId);
+            List<Location> locations = transferService.getLocationsByWarehouse(transfer.getDestinationWarehouseId());
             
-            request.getRequestDispatcher("/WEB-INF/views/sales-order/cancel.jsp")
+            request.setAttribute("transfer", transfer);
+            request.setAttribute("sourceWarehouse", source);
+            request.setAttribute("destinationWarehouse", dest);
+            request.setAttribute("items", items);
+            request.setAttribute("locations", locations);
+            
+            request.getRequestDispatcher("/WEB-INF/views/transfer/execute-inbound.jsp")
                    .forward(request, response);
                    
         } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid order ID");
-            listOrders(request, response);
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
         }
     }
     
     /**
-     * UC-SO-004: Cancel sales order
+     * UC-TRF-004: Start inbound execution
      */
-    private void cancelOrder(HttpServletRequest request, HttpServletResponse response)
+    private void startInbound(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            Long requestId = Long.parseLong(request.getParameter("id"));
+            
+            // Verify user is at destination warehouse (or Admin)
+            User currentUser = (User) request.getSession(false).getAttribute("user");
+            Request transfer = transferService.getTransferRequestById(requestId);
+            if (!"Admin".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (transfer == null || userWarehouseId == null 
+                        || !userWarehouseId.equals(transfer.getDestinationWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only destination warehouse staff can start transfer inbound.");
+                    listTransfers(request, response);
+                    return;
+                }
+            }
+            
+            boolean success = transferService.startInboundExecution(requestId);
+            
+            if (success) {
+                request.getSession().setAttribute("successMessage", "Inbound receiving started");
+                response.sendRedirect(request.getContextPath() + 
+                    "/transfer?action=execute-inbound&id=" + requestId);
+            } else {
+                request.setAttribute("errorMessage", "Failed to start inbound execution");
+                showInboundExecutionForm(request, response);
+            }
+            
+        } catch (NumberFormatException e) {
+            request.setAttribute("errorMessage", "Invalid request ID");
+            listTransfers(request, response);
+        }
+    }
+    
+    /**
+     * UC-TRF-004: Complete inbound execution — destination WH completes the transfer
+     */
+    private void completeInbound(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
         try {
-            Long orderId = Long.parseLong(request.getParameter("id"));
-            String reason = request.getParameter("reason");
+            Long requestId = Long.parseLong(request.getParameter("id"));
             
-            if (reason == null || reason.trim().isEmpty()) {
-                request.setAttribute("errorMessage", "Cancellation reason is required");
-                showCancelForm(request, response);
+            // Verify user is at destination warehouse (or Admin)
+            Request transferCheck = transferService.getTransferRequestById(requestId);
+            if (!"Admin".equals(currentUser.getRole())) {
+                Long userWarehouseId = currentUser.getWarehouseId();
+                if (transferCheck == null || userWarehouseId == null 
+                        || !userWarehouseId.equals(transferCheck.getDestinationWarehouseId())) {
+                    request.setAttribute("errorMessage", 
+                        "Only destination warehouse staff can complete transfer inbound.");
+                    listTransfers(request, response);
+                    return;
+                }
+            }
+            
+            // Parse per-item location assignments and received quantities
+            String[] productIds = request.getParameterValues("productId[]");
+            String[] locationIds = request.getParameterValues("locationId[]");
+            String[] receivedQtys = request.getParameterValues("receivedQty[]");
+            
+            if (productIds == null || locationIds == null || productIds.length != locationIds.length) {
+                request.setAttribute("errorMessage", "Please assign a location to each item");
+                showInboundExecutionForm(request, response);
                 return;
             }
             
-            boolean success = salesOrderService.cancelOrder(orderId, currentUser.getId(), reason);
+            Map<Long, Long> itemLocationMap = new HashMap<>();
+            Map<Long, Integer> receivedQuantities = new HashMap<>();
+            for (int i = 0; i < productIds.length; i++) {
+                if (productIds[i] != null && !productIds[i].isEmpty()
+                        && locationIds[i] != null && !locationIds[i].isEmpty()) {
+                    Long prodId = Long.parseLong(productIds[i]);
+                    itemLocationMap.put(prodId, Long.parseLong(locationIds[i]));
+                    if (receivedQtys != null && i < receivedQtys.length
+                            && receivedQtys[i] != null && !receivedQtys[i].isEmpty()) {
+                        receivedQuantities.put(prodId, Integer.parseInt(receivedQtys[i]));
+                    }
+                }
+            }
+            
+            if (itemLocationMap.isEmpty()) {
+                request.setAttribute("errorMessage", "Please assign a location to each item");
+                showInboundExecutionForm(request, response);
+                return;
+            }
+            
+            boolean success = transferService.completeInboundExecution(
+                requestId, currentUser.getId(), itemLocationMap, receivedQuantities);
             
             if (success) {
+                request.getSession().setAttribute("successMessage", "Transfer completed successfully");
                 response.sendRedirect(request.getContextPath() + 
-                    "/sales-order?success=Sales order cancelled successfully");
+                    "/transfer?action=view&id=" + requestId);
             } else {
-                request.setAttribute("errorMessage", "Failed to cancel order");
-                showCancelForm(request, response);
+                request.setAttribute("errorMessage", "Failed to complete inbound");
+                showInboundExecutionForm(request, response);
             }
             
         } catch (NumberFormatException e) {
-            request.setAttribute("errorMessage", "Invalid order ID");
-            listOrders(request, response);
+            request.setAttribute("errorMessage", "Invalid input");
+            listTransfers(request, response);
         }
     }
 }
