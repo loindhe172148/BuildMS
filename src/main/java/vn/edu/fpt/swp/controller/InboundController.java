@@ -689,6 +689,7 @@ public class InboundController extends HttpServlet {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
                     request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
+                    request.setAttribute("productCategory_" + item.getProductId(), product.getCategoryId());
                 }
                 if (item.getLocationId() != null) {
                     Location location = inboundService.getLocationById(item.getLocationId());

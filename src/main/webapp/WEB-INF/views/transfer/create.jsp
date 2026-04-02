@@ -219,17 +219,6 @@
                 {id: ${p.product.id}, name: "<c:out value='${p.product.name}'/>", sku: "<c:out value='${p.product.sku}'/>", available: ${p.totalQuantity}, unit: "<c:out value='${p.product.unit}'/>"}<c:if test="${!status.last}">,</c:if>
                 </c:forEach>
             ];
-
-            // Per-product location breakdown: { productId -> [{id, code, type, qty}] }
-            const productLocations = {
-                <c:forEach var="p" items="${products}" varStatus="pStatus">
-                "${p.product.id}": [
-                    <c:forEach var="loc" items="${p.locations}" varStatus="lStatus">
-                    {id: ${loc.locationId}, code: "<c:out value='${loc.locationCode}'/>", type: "<c:out value='${loc.locationType}'/>", qty: ${loc.quantity}}<c:if test="${!lStatus.last}">,</c:if>
-                    </c:forEach>
-                ]<c:if test="${!pStatus.last}">,</c:if>
-                </c:forEach>
-            };
             
             function updateUI() {
                 const items = itemsContainer.querySelectorAll('.item-row');
@@ -258,42 +247,17 @@
                     });
                 });
             }
-
-            function populateLocationDropdown(locationSelect, productId, availableDisplay, qtyInput) {
-                // Reset
-                locationSelect.innerHTML = '<option value="">-- Any location --</option>';
-                locationSelect.disabled = true;
-                availableDisplay.value = '-';
-
-                if (!productId) return;
-
-                const product = products.find(p => p.id === parseInt(productId));
-                if (product) {
-                    availableDisplay.value = product.available + ' ' + product.unit;
-                    qtyInput.max = product.available;
-                }
-
-                const locs = productLocations[productId] || [];
-                if (locs.length === 0) return;
-
-                locs.forEach(loc => {
-                    const opt = document.createElement('option');
-                    opt.value = loc.id;
-                    opt.textContent = loc.code + ' [' + loc.type + '] — ' + loc.qty + ' ' + (product ? product.unit : '');
-                    locationSelect.appendChild(opt);
-                });
-                locationSelect.disabled = false;
-            }
             
             function addItemRow() {
                 const row = document.createElement('div');
-                row.className = 'item-row row mb-3 g-2 align-items-end';
+                row.className = 'item-row row mb-3 align-items-end';
                 
+                // Get already selected product IDs
                 const selectedIds = getSelectedProductIds();
                 
-                // --- Product column ---
+                // Create product column
                 const colProduct = document.createElement('div');
-                colProduct.className = 'col-md-4';
+                colProduct.className = 'col-md-5';
                 const labelProduct = document.createElement('label');
                 labelProduct.className = 'form-label';
                 labelProduct.innerHTML = 'Product <span class="text-danger">*</span>';
@@ -302,49 +266,34 @@
                 select.className = 'form-select product-select';
                 select.required = true;
                 
+                // Add default option
                 const defaultOption = document.createElement('option');
                 defaultOption.value = '';
                 defaultOption.textContent = 'Select Product';
                 select.appendChild(defaultOption);
                 
+                // Add product options (disable already selected ones)
                 products.forEach(p => {
                     const option = document.createElement('option');
                     option.value = p.id;
                     option.setAttribute('data-available', p.available);
-                    option.textContent = p.name + ' (' + p.sku + ')';
+                    option.textContent = p.name + ' (' + p.sku + ') - Available: ' + p.available + ' ' + p.unit;
                     option.disabled = selectedIds.includes(p.id);
                     select.appendChild(option);
                 });
                 
                 colProduct.appendChild(labelProduct);
                 colProduct.appendChild(select);
-
-                // --- Source Location column ---
-                const colLoc = document.createElement('div');
-                colLoc.className = 'col-md-3';
-                const labelLoc = document.createElement('label');
-                labelLoc.className = 'form-label';
-                labelLoc.textContent = 'Source Location';
-                const locationSelect = document.createElement('select');
-                locationSelect.name = 'sourceLocationId[]';
-                locationSelect.className = 'form-select location-select';
-                locationSelect.disabled = true;
-                const defaultLocOption = document.createElement('option');
-                defaultLocOption.value = '';
-                defaultLocOption.textContent = '-- Any location --';
-                locationSelect.appendChild(defaultLocOption);
-                colLoc.appendChild(labelLoc);
-                colLoc.appendChild(locationSelect);
                 
-                // --- Quantity column ---
+                // Create quantity column
                 const colQty = document.createElement('div');
-                colQty.className = 'col-md-2';
+                colQty.className = 'col-md-3';
                 colQty.innerHTML = `
                     <label class="form-label">Quantity <span class="text-danger">*</span></label>
                     <input type="number" name="quantity[]" class="form-control quantity-input" min="1" value="1" required>
                 `;
                 
-                // --- Available column ---
+                // Create available column
                 const colAvail = document.createElement('div');
                 colAvail.className = 'col-md-2';
                 colAvail.innerHTML = `
@@ -352,9 +301,9 @@
                     <input type="text" class="form-control available-display" readonly value="-">
                 `;
                 
-                // --- Remove button column ---
+                // Create button column
                 const colBtn = document.createElement('div');
-                colBtn.className = 'col-md-1';
+                colBtn.className = 'col-md-2';
                 colBtn.innerHTML = `
                     <label class="form-label d-block">&nbsp;</label>
                     <button type="button" class="btn btn-outline-danger w-100 remove-item-btn">
@@ -363,42 +312,28 @@
                 `;
                 
                 row.appendChild(colProduct);
-                row.appendChild(colLoc);
                 row.appendChild(colQty);
                 row.appendChild(colAvail);
                 row.appendChild(colBtn);
-
-                const availableDisplay = colAvail.querySelector('.available-display');
-                const qtyInput = colQty.querySelector('.quantity-input');
                 
-                // Events
+                // Add event listeners
                 row.querySelector('.remove-item-btn').addEventListener('click', function() {
                     row.remove();
                     updateUI();
                     updateAllDropdowns();
                 });
                 
-                select.addEventListener('change', function() {
-                    const productId = this.value;
-                    populateLocationDropdown(locationSelect, productId, availableDisplay, qtyInput);
-
-                    // When location selected, update available display to that location's qty
-                    locationSelect.addEventListener('change', function() {
-                        if (!this.value) {
-                            // "Any" selected: show total available
-                            const product = products.find(p => p.id === parseInt(productId));
-                            if (product) availableDisplay.value = product.available + ' ' + product.unit;
-                        } else {
-                            const locs = productLocations[productId] || [];
-                            const loc = locs.find(l => l.id === parseInt(this.value));
-                            if (loc) {
-                                const product = products.find(p => p.id === parseInt(productId));
-                                availableDisplay.value = loc.qty + ' ' + (product ? product.unit : '');
-                                qtyInput.max = loc.qty;
-                            }
-                        }
-                    }, { once: false });
-
+                row.querySelector('.product-select').addEventListener('change', function() {
+                    const selected = this.options[this.selectedIndex];
+                    const available = selected.getAttribute('data-available') || '-';
+                    const product = products.find(p => p.id === parseInt(row.querySelector('.product-select').value));
+                    row.querySelector('.available-display').value = available + (product ? ' ' + product.unit : '');
+                    
+                    const qtyInput = row.querySelector('.quantity-input');
+                    if (available !== '-') {
+                        qtyInput.max = available;
+                    }
+                    
                     updateAllDropdowns();
                 });
                 
@@ -411,6 +346,5 @@
         });
     </script>
     </c:if>
-
 </body>
 </html>

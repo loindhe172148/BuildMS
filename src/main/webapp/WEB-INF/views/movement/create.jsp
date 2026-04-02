@@ -214,6 +214,7 @@
                 sku: '<c:out value="${pi.product.sku}" escapeXml="true"/>',
                 name: '<c:out value="${pi.product.name}" escapeXml="true"/>',
                 unit: '<c:out value="${pi.product.unit}" escapeXml="true"/>',
+                categoryId: ${pi.product.categoryId != null ? pi.product.categoryId : 'null'},
                 totalQty: ${pi.totalQuantity},
                 inventories: [
                     <c:forEach var="inv" items="${pi.inventories}" varStatus="invStatus">
@@ -227,7 +228,7 @@
         // Locations data
         const locations = [
             <c:forEach var="loc" items="${locations}" varStatus="status">
-            { id: ${loc.id}, code: '<c:out value="${loc.code}" escapeXml="true"/>', type: '<c:out value="${loc.type}" escapeXml="true"/>' }<c:if test="${not status.last}">,</c:if>
+            { id: ${loc.id}, code: '<c:out value="${loc.code}" escapeXml="true"/>', type: '<c:out value="${loc.type}" escapeXml="true"/>', categoryId: ${loc.categoryId != null ? loc.categoryId : 'null'} }<c:if test="${not status.last}">,</c:if>
             </c:forEach>
         ];
         
@@ -289,14 +290,8 @@
                 productSelect.appendChild(option);
             });
             
-            // Populate destination location dropdown
-            const destSelect = document.getElementById(`destLocation_\${itemCounter}`);
-            locations.forEach(l => {
-                const option = document.createElement('option');
-                option.value = l.id;
-                option.textContent = `\${l.code} (\${l.type})`;
-                destSelect.appendChild(option);
-            });
+            // Find product and populate destination location dropdown
+            // (Wait until the user selects a product to populate destSelect in onProductChange)
         }
         
         function removeItem(itemId) {
@@ -306,11 +301,13 @@
         function onProductChange(itemId, selectElement) {
             const productId = parseInt(selectElement.value);
             const sourceSelect = document.getElementById('sourceLocation_' + itemId);
+            const destSelect = document.getElementById('destLocation_' + itemId);
             const availableQtyEl = document.getElementById('availableQty_' + itemId);
             const qtyInput = document.getElementById('qty_' + itemId);
             
             // Reset source location
             sourceSelect.innerHTML = '<option value="">-- Select Source Location --</option>';
+            destSelect.innerHTML = '<option value="">-- Select Destination Location --</option>';
             availableQtyEl.textContent = '';
             qtyInput.value = '';
             qtyInput.max = '';
@@ -330,6 +327,16 @@
                     option.textContent = `\${loc.code} (\${loc.type}) - Qty: \${inv.quantity} \${product.unit}`;
                     option.dataset.quantity = inv.quantity;
                     sourceSelect.appendChild(option);
+                }
+            });
+            
+            // Populate destination locations filtered by category
+            locations.forEach(l => {
+                if (l.categoryId === null || l.categoryId === product.categoryId) {
+                    const option = document.createElement('option');
+                    option.value = l.id;
+                    option.textContent = `\${l.code} (\${l.type})`;
+                    destSelect.appendChild(option);
                 }
             });
         }

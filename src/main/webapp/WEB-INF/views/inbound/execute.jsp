@@ -158,7 +158,8 @@
                                                                 <select class="form-select" name="locationId" required>
                                                                     <option value="">Select location...</option>
                                                                     <c:forEach var="loc" items="${locations}">
-                                                                        <c:if test="${loc.active}">
+                                                                        <c:set var="prodCat" value="${requestScope['productCategory_'.concat(item.productId)]}" />
+                                                                        <c:if test="${loc.active && (loc.categoryId == null || loc.categoryId == prodCat)}">
                                                                             <option value="<c:out value='${loc.id}'/>" <c:out value="${item.locationId == loc.id ? 'selected' : ''}"/>>
                                                                                 <c:out value="${loc.code}"/> (<c:out value="${loc.type}"/>)
                                                                             </option>

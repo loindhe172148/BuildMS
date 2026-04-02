@@ -98,6 +98,13 @@ public class MovementService {
                 return null; // Invalid destination location or not in same warehouse
             }
             
+            // BR-MOV-007: Destination location must be compatible with product's category
+            if (destLocation.getCategoryId() != null) {
+                if (product == null || !destLocation.getCategoryId().equals(product.getCategoryId())) {
+                    return null; // Destination restricted to different category
+                }
+            }
+            
             // BR-MOV-003: Source and destination must be different
             if (item.getSourceLocationId().equals(item.getDestinationLocationId())) {
                 return null;
@@ -309,6 +316,15 @@ public class MovementService {
                     item.getProductId(), warehouseId, item.getSourceLocationId());
             if (sourceInventory == null || sourceInventory.getQuantity() < item.getQuantity()) {
                 return false; // Not enough inventory - reject before any changes
+            }
+            
+            // BR-MXE-005: Defensive re-validation of destination compatibility
+            Location destLoc = locationDAO.findById(item.getDestinationLocationId());
+            if (destLoc != null && destLoc.getCategoryId() != null) {
+                Product product = productDAO.findById(item.getProductId());
+                if (product == null || !destLoc.getCategoryId().equals(product.getCategoryId())) {
+                    return false; // Category changed since creation — block
+                }
             }
         }
         

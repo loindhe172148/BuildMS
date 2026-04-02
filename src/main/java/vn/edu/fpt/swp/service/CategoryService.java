@@ -112,6 +112,11 @@ public class CategoryService {
             return false; // Cannot delete category with products
         }
         
+        // BR-CAT-006: Cannot delete category assigned to locations
+        if (categoryDAO.countLocations(id) > 0) {
+            return false; // Category is used as restriction on locations
+        }
+        
         return categoryDAO.delete(id);
     }
     
