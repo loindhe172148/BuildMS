@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.dao;
 
 import vn.edu.fpt.swp.model.Request;
 import vn.edu.fpt.swp.util.DBConnection;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -24,8 +26,8 @@ public class RequestDAO {
         }
         
         String sql = "INSERT INTO Requests (Type, Status, CreatedBy, SalesOrderId, SourceWarehouseId, " +
-                     "DestinationWarehouseId, ExpectedDate, Notes, Reason, CreatedAt) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
+                     "DestinationWarehouseId, ProviderId, ExpectedDate, Notes, Reason, CreatedAt) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -52,14 +54,20 @@ public class RequestDAO {
                 stmt.setNull(6, Types.BIGINT);
             }
             
-            if (request.getExpectedDate() != null) {
-                stmt.setTimestamp(7, Timestamp.valueOf(request.getExpectedDate()));
+            if (request.getProviderId() != null) {
+                stmt.setLong(7, request.getProviderId());
             } else {
-                stmt.setNull(7, Types.TIMESTAMP);
+                stmt.setNull(7, Types.BIGINT);
             }
             
-            stmt.setString(8, request.getNotes());
-            stmt.setString(9, request.getReason());
+            if (request.getExpectedDate() != null) {
+                stmt.setTimestamp(8, Timestamp.valueOf(request.getExpectedDate()));
+            } else {
+                stmt.setNull(8, Types.TIMESTAMP);
+            }
+            
+            stmt.setString(9, request.getNotes());
+            stmt.setString(10, request.getReason());
             
             int affectedRows = stmt.executeUpdate();
             
@@ -90,7 +98,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE Id = ?";
         
         try (Connection conn = DBConnection.getConnection();
@@ -124,7 +132,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE Type = ? ORDER BY CreatedAt DESC";
         
         try (Connection conn = DBConnection.getConnection();
@@ -159,7 +167,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE Type = ? AND Status = ? " +
                      "ORDER BY CreatedAt DESC";
         
@@ -195,7 +203,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests " +
                      "WHERE SourceWarehouseId = ? OR DestinationWarehouseId = ? " +
                      "ORDER BY CreatedAt DESC";
@@ -231,7 +239,7 @@ public class RequestDAO {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, ");
         sql.append("RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, ");
-        sql.append("SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, ");
+        sql.append("SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, ");
         sql.append("Notes, Reason, CreatedAt FROM Requests WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
@@ -271,6 +279,147 @@ public class RequestDAO {
         }
         
         return requests;
+    }
+
+    /**
+     * Search transfer requests with creator-aware visibility:
+     * - A transfer in 'Created' status is only visible to the user who created it.
+     * - Once approved (Status != 'Created'), it becomes visible to all users
+     *   in the related warehouses (source or destination).
+     * - Admin (warehouseId = null, currentUserId = null) sees everything.
+     *
+     * @param status        Optional status filter
+     * @param warehouseId   The user's warehouse (null for Admin = see all)
+     * @param currentUserId The current user's ID for creator-based visibility
+     * @param pageRequest   Pagination parameters
+     * @return Paginated result of matching Transfer requests
+     */
+    public PageResult<Request> searchTransferPaginated(String status, Long warehouseId, Long currentUserId, PageRequest pageRequest) {
+        List<Request> requests = new ArrayList<>();
+
+        StringBuilder fromClause = new StringBuilder(" FROM Requests WHERE Type = 'Transfer' ");
+        List<Object> params = new ArrayList<>();
+
+        if (status != null && !status.trim().isEmpty()) {
+            fromClause.append("AND Status = ? ");
+            params.add(status.trim());
+        }
+
+        if (warehouseId != null && currentUserId != null) {
+            // Creator always sees their own transfers (any status).
+            // Others (same warehouse) only see it once it's been approved.
+            fromClause.append(
+                "AND (CreatedBy = ? " +
+                "OR (Status <> 'Created' AND (SourceWarehouseId = ? OR DestinationWarehouseId = ?))) ");
+            params.add(currentUserId);
+            params.add(warehouseId);
+            params.add(warehouseId);
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
+            "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
+            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+            "Notes, Reason, CreatedAt" + fromClause +
+            "ORDER BY CreatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        requests.add(mapResultSetToRequest(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(requests, totalItems, pageRequest);
+    }
+
+    public PageResult<Request> searchPaginated(String type, String status, Long warehouseId, PageRequest pageRequest) {
+        List<Request> requests = new ArrayList<>();
+
+        StringBuilder fromClause = new StringBuilder(" FROM Requests WHERE 1=1 ");
+        List<Object> params = new ArrayList<>();
+
+        if (type != null && !type.trim().isEmpty()) {
+            fromClause.append("AND Type = ? ");
+            params.add(type.trim());
+        }
+
+        if (status != null && !status.trim().isEmpty()) {
+            fromClause.append("AND Status = ? ");
+            params.add(status.trim());
+        }
+
+        if (warehouseId != null) {
+            fromClause.append("AND (SourceWarehouseId = ? OR DestinationWarehouseId = ?) ");
+            params.add(warehouseId);
+            params.add(warehouseId);
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
+            "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
+            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+            "Notes, Reason, CreatedAt" + fromClause +
+            "ORDER BY CreatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        requests.add(mapResultSetToRequest(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(requests, totalItems, pageRequest);
     }
     
     /**
@@ -341,7 +490,8 @@ public class RequestDAO {
             return false;
         }
         
-        String sql = "UPDATE Requests SET Status = 'InProgress' WHERE Id = ? AND Status = 'Approved'";
+        // Allow start from 'Approved' (standard) or 'Created' (internal movements have no approval step)
+        String sql = "UPDATE Requests SET Status = 'InProgress' WHERE Id = ? AND Status IN ('Approved', 'Created')";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -368,7 +518,7 @@ public class RequestDAO {
         }
         
         String sql = "UPDATE Requests SET Status = 'Completed', CompletedBy = ?, CompletedDate = GETDATE() " +
-                     "WHERE Id = ? AND Status = 'InProgress'";
+                     "WHERE Id = ? AND Status IN ('InProgress', 'Receiving')";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -401,6 +551,37 @@ public class RequestDAO {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setString(1, newStatus);
+            stmt.setLong(2, requestId);
+            
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Update notes on a request
+     * @param requestId Request ID
+     * @param notes New notes text
+     * @return true if successful
+     */
+    public boolean updateNotes(Long requestId, String notes) {
+        if (requestId == null) {
+            return false;
+        }
+        
+        String sql = "UPDATE Requests SET Notes = ? WHERE Id = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            if (notes != null) {
+                stmt.setString(1, notes);
+            } else {
+                stmt.setNull(1, java.sql.Types.NVARCHAR);
+            }
             stmt.setLong(2, requestId);
             
             return stmt.executeUpdate() > 0;
@@ -471,7 +652,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE SalesOrderId = ? " +
                      "ORDER BY CreatedAt DESC";
         
@@ -490,6 +671,29 @@ public class RequestDAO {
         }
         
         return requests;
+    }
+    
+    /**
+     * Delete a request by ID (used for cleanup when item creation fails)
+     * @param id Request ID
+     * @return true if deleted successfully
+     */
+    public boolean deleteById(Long id) {
+        if (id == null) {
+            return false;
+        }
+        
+        String sql = "DELETE FROM Requests WHERE Id = ?";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setLong(1, id);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
     
     /**
@@ -547,6 +751,11 @@ public class RequestDAO {
         long destinationWarehouseId = rs.getLong("DestinationWarehouseId");
         if (!rs.wasNull()) {
             request.setDestinationWarehouseId(destinationWarehouseId);
+        }
+        
+        long providerId = rs.getLong("ProviderId");
+        if (!rs.wasNull()) {
+            request.setProviderId(providerId);
         }
         
         Timestamp expectedDate = rs.getTimestamp("ExpectedDate");
