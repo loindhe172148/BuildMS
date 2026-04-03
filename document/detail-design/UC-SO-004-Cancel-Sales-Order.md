@@ -6,7 +6,7 @@
 | **Use Case ID** | UC-SO-004 |
 | **Use Case Name** | Cancel Sales Order |
 | **Primary Actor** | Sales |
-| **Secondary Actor** | Manager |
+| **Secondary Actor** | Admin |
 | **Description** | Cancel a sales order that is no longer needed |
 | **Preconditions** | User is logged in; Sales Order exists and is not Completed |
 | **Postconditions** | Sales Order status changed to "Cancelled" |
@@ -60,7 +60,7 @@
   - System cancels those requests automatically
 - If requests are "Approved" or "In Progress":
   - System displays warning
-  - Manager must manually handle those requests
+  - Admin/Sales must manually handle those requests
 
 ### Step 9: Update Sales Order Status
 - System updates SalesOrder record:
@@ -89,15 +89,15 @@
 - **Steps:**
   1. System displays warning: "This order has active outbound requests"
   2. Lists the active requests
-  3. User must contact Manager to handle requests first
-  4. OR Manager can force cancel with acknowledgment
+  3. User must handle requests first
+  4. OR user can force cancel with acknowledgment
 
 ---
 
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-CAN-001 | Sales and Manager can cancel orders |
+| BR-CAN-001 | Sales and Admin can cancel orders |
 | BR-CAN-002 | Completed orders cannot be cancelled |
 | BR-CAN-003 | Cancellation reason is required |
 | BR-CAN-004 | Related "Created" outbound requests are auto-cancelled |
@@ -110,7 +110,7 @@
 | Role | Permission |
 |------|------------|
 | Admin | ✓ Can cancel orders |
-| Manager | ✓ Can cancel orders |
+| Manager | ✗ Cannot cancel orders (View Only) |
 | Staff | ✗ Cannot cancel orders |
 | Sales | ✓ Can cancel orders |
 

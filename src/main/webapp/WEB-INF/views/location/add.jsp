@@ -72,7 +72,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -88,9 +88,9 @@
                                                 <select class="form-select" id="warehouseId" name="warehouseId" required>
                                                     <option value="">Select Warehouse</option>
                                                     <c:forEach var="wh" items="${warehouses}">
-                                                        <option value="${wh.id}" 
-                                                                ${(selectedWarehouseId == wh.id || param.warehouseId == wh.id) ? 'selected' : ''}>
-                                                            ${wh.name}
+                                                        <option value="<c:out value='${wh.id}'/>" 
+                                                                <c:out value="${(warehouseId == wh.id || param.warehouseId == wh.id) ? 'selected' : ''}"/>>
+                                                            <c:out value="${wh.name}"/>
                                                         </option>
                                                     </c:forEach>
                                                 </select>
@@ -107,7 +107,7 @@
                                                 </label>
                                                 <input type="text" class="form-control" id="code" name="code" 
                                                        placeholder="Enter location code (e.g., A-01-01)" 
-                                                       value="${code}" 
+                                                       value="<c:out value='${code}'/>" 
                                                        maxlength="50" 
                                                        required />
                                                 <div class="form-text">
@@ -125,7 +125,7 @@
                                                     <div class="col-md-4">
                                                         <input type="radio" class="btn-check" name="type" 
                                                                id="typeStorage" value="Storage" 
-                                                               ${empty type || type == 'Storage' ? 'checked' : ''} required />
+                                                               <c:out value="${empty type || type == 'Storage' ? 'checked' : ''}"/> required />
                                                         <label class="btn btn-outline-primary w-100 py-3" for="typeStorage">
                                                             <i class="bx bx-box fs-3 d-block mb-1"></i>
                                                             <span class="fw-medium">Storage</span>
@@ -135,7 +135,7 @@
                                                     <div class="col-md-4">
                                                         <input type="radio" class="btn-check" name="type" 
                                                                id="typePicking" value="Picking" 
-                                                               ${type == 'Picking' ? 'checked' : ''} />
+                                                               <c:out value="${type == 'Picking' ? 'checked' : ''}"/> />
                                                         <label class="btn btn-outline-info w-100 py-3" for="typePicking">
                                                             <i class="bx bx-hand fs-3 d-block mb-1"></i>
                                                             <span class="fw-medium">Picking</span>
@@ -145,7 +145,7 @@
                                                     <div class="col-md-4">
                                                         <input type="radio" class="btn-check" name="type" 
                                                                id="typeStaging" value="Staging" 
-                                                               ${type == 'Staging' ? 'checked' : ''} />
+                                                               <c:out value="${type == 'Staging' ? 'checked' : ''}"/> />
                                                         <label class="btn btn-outline-warning w-100 py-3" for="typeStaging">
                                                             <i class="bx bx-time fs-3 d-block mb-1"></i>
                                                             <span class="fw-medium">Staging</span>
@@ -241,7 +241,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

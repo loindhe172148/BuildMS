@@ -53,7 +53,7 @@
                                         <h5 class="mb-0">
                                             <i class="bx bx-edit me-2"></i>Edit Category
                                         </h5>
-                                        <span class="badge bg-label-primary">ID: ${category.id}</span>
+                                        <span class="badge bg-label-primary">ID: <c:out value="${category.id}"/></span>
                                     </div>
                                     <div class="card-body">
                                         
@@ -61,7 +61,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -79,7 +79,7 @@
                                                        class="form-control" 
                                                        id="name" 
                                                        name="name" 
-                                                       value="${category.name}"
+                                                       value="<c:out value='${category.name}'/>"
                                                        placeholder="Enter category name" 
                                                        maxlength="255"
                                                        required 
@@ -94,7 +94,7 @@
                                                           name="description" 
                                                           rows="4" 
                                                           maxlength="500"
-                                                          placeholder="Enter category description (optional)">${category.description}</textarea>
+                                                          placeholder="Enter category description (optional)"><c:out value="${category.description}"/></textarea>
                                                 <div class="form-text">Maximum 500 characters</div>
                                             </div>
                                             
@@ -127,7 +127,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

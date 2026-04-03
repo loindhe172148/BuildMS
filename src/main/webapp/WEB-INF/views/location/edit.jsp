@@ -72,7 +72,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -86,7 +86,7 @@
                                             <div class="mb-4">
                                                 <label for="warehouseName" class="form-label">Warehouse</label>
                                                 <input type="text" class="form-control" id="warehouseName" 
-                                                       value="${warehouseName}" readonly disabled />
+                                                       value="${not empty warehouse ? warehouse.name : ''}" readonly disabled />
                                                 <div class="form-text">
                                                     <i class="bx bx-info-circle me-1"></i>
                                                     Warehouse cannot be changed after creation.
@@ -100,7 +100,7 @@
                                                 </label>
                                                 <input type="text" class="form-control" id="code" name="code" 
                                                        placeholder="Enter location code (e.g., A-01-01)" 
-                                                       value="${not empty code ? code : location.code}" 
+                                                       value="<c:out value='${not empty code ? code : location.code}'/>" 
                                                        maxlength="50" 
                                                        required />
                                                 <div class="form-text">
@@ -119,7 +119,7 @@
                                                     <div class="col-md-4">
                                                         <input type="radio" class="btn-check" name="type" 
                                                                id="typeStorage" value="Storage" 
-                                                               ${currentType == 'Storage' ? 'checked' : ''} required />
+                                                               <c:out value="${currentType == 'Storage' ? 'checked' : ''}"/> required />
                                                         <label class="btn btn-outline-primary w-100 py-3" for="typeStorage">
                                                             <i class="bx bx-box fs-3 d-block mb-1"></i>
                                                             <span class="fw-medium">Storage</span>
@@ -129,7 +129,7 @@
                                                     <div class="col-md-4">
                                                         <input type="radio" class="btn-check" name="type" 
                                                                id="typePicking" value="Picking" 
-                                                               ${currentType == 'Picking' ? 'checked' : ''} />
+                                                               <c:out value="${currentType == 'Picking' ? 'checked' : ''}"/> />
                                                         <label class="btn btn-outline-info w-100 py-3" for="typePicking">
                                                             <i class="bx bx-hand fs-3 d-block mb-1"></i>
                                                             <span class="fw-medium">Picking</span>
@@ -139,7 +139,7 @@
                                                     <div class="col-md-4">
                                                         <input type="radio" class="btn-check" name="type" 
                                                                id="typeStaging" value="Staging" 
-                                                               ${currentType == 'Staging' ? 'checked' : ''} />
+                                                               <c:out value="${currentType == 'Staging' ? 'checked' : ''}"/> />
                                                         <label class="btn btn-outline-warning w-100 py-3" for="typeStaging">
                                                             <i class="bx bx-time fs-3 d-block mb-1"></i>
                                                             <span class="fw-medium">Staging</span>
@@ -188,7 +188,7 @@
                                         <div class="d-flex align-items-center mb-3">
                                             <span class="me-3">Inventory Items:</span>
                                             <span class="badge bg-label-${inventoryCount > 0 ? 'success' : 'secondary'}">
-                                                ${inventoryCount}
+                                                <c:out value="${inventoryCount}"/>
                                             </span>
                                         </div>
                                         
@@ -238,7 +238,7 @@
                                                 View Warehouse Locations
                                             </a>
                                             <c:if test="${inventoryCount > 0}">
-                                                <a href="${contextPath}/inventory?action=byLocation&locationId=${location.id}" 
+                                                <a href="${contextPath}/inventory?action=byWarehouse&warehouseId=${location.warehouseId}" 
                                                    class="btn btn-outline-info">
                                                     <i class="bx bx-box me-1"></i>
                                                     View Inventory
@@ -286,7 +286,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

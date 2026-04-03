@@ -3,7 +3,6 @@
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
-<c:set var="transfer" value="${request}" />
 
 <!DOCTYPE html>
 <html lang="en" class="layout-menu-fixed layout-compact" 
@@ -46,7 +45,7 @@
                                     <a href="${contextPath}/transfer">Transfers</a>
                                 </li>
                                 <li class="breadcrumb-item">
-                                    <a href="${contextPath}/transfer?action=view&id=${transfer.id}">${transfer.requestNumber}</a>
+                                    <a href="${contextPath}/transfer?action=view&id=${transfer.id}">#<c:out value="${transfer.id}"/></a>
                                 </li>
                                 <li class="breadcrumb-item active" aria-current="page">Execute Outbound</li>
                             </ol>
@@ -55,19 +54,11 @@
                         <!-- Alerts -->
                         <jsp:include page="/WEB-INF/common/alerts.jsp" />
                         
-                        <c:if test="${not empty errorMessage}">
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="bx bx-error-circle me-2"></i>
-                                ${errorMessage}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        </c:if>
-                        
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <div>
                                 <h4 class="mb-1">
-                                    <i class="bx bx-export me-2"></i>Execute Outbound: ${transfer.requestNumber}
+                                    <i class="bx bx-export me-2"></i>Execute Outbound: #<c:out value="${transfer.id}"/>
                                 </h4>
                                 <p class="text-muted mb-0">Pick items from source warehouse for transfer</p>
                             </div>
@@ -87,8 +78,8 @@
                                             </div>
                                             <div>
                                                 <h6 class="text-muted mb-1">Source Warehouse</h6>
-                                                <h5 class="mb-0">${sourceWarehouse.name}</h5>
-                                                <small class="text-muted">${sourceWarehouse.code}</small>
+                                                <h5 class="mb-0"><c:out value="${sourceWarehouse.name}"/></h5>
+                                                <small class="text-muted"><c:out value="${sourceWarehouse.location}"/></small>
                                             </div>
                                         </div>
                                     </div>
@@ -103,8 +94,8 @@
                                             </div>
                                             <div>
                                                 <h6 class="text-muted mb-1">Destination Warehouse</h6>
-                                                <h5 class="mb-0">${destinationWarehouse.name}</h5>
-                                                <small class="text-muted">${destinationWarehouse.code}</small>
+                                                <h5 class="mb-0"><c:out value="${destinationWarehouse.name}"/></h5>
+                                                <small class="text-muted"><c:out value="${destinationWarehouse.location}"/></small>
                                             </div>
                                         </div>
                                     </div>
@@ -141,26 +132,28 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <c:set var="allAvailable" value="true" />
-                                                    <c:forEach var="check" items="${availabilityCheck}">
-                                                        <c:set var="item" value="${check.item}" />
-                                                        <c:set var="available" value="${check.available}" />
-                                                        <c:if test="${available < item.quantity}">
-                                                            <c:set var="allAvailable" value="false" />
+                                                    <c:set var="allAvailable" value="${true}" />
+                                                    <c:forEach var="check" items="${availability}">
+                                                        <c:if test="${check.available < check.item.quantity}">
+                                                            <c:set var="allAvailable" value="${false}" />
                                                         </c:if>
                                                         <tr>
                                                             <td>
                                                                 <c:choose>
-                                                                    <c:when test="${not empty item.product}">${item.product.name}</c:when>
-                                                                    <c:otherwise>Product #${item.productId}</c:otherwise>
+                                                                    <c:when test="${not empty check.product}">${check.product.name}</c:when>
+                                                                    <c:otherwise>Product #${check.item.productId}</c:otherwise>
                                                                 </c:choose>
                                                             </td>
-                                                            <td><code>${item.product.sku}</code></td>
-                                                            <td class="text-center">${item.quantity}</td>
-                                                            <td class="text-center">${available}</td>
+                                                            <td>
+                                                                <c:if test="${not empty check.product}">
+                                                                    <code><c:out value="${check.product.sku}"/></code>
+                                                                </c:if>
+                                                            </td>
+                                                            <td class="text-center"><c:out value="${check.item.quantity}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
+                                                            <td class="text-center"><c:out value="${check.available}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
                                                             <td class="text-center">
                                                                 <c:choose>
-                                                                    <c:when test="${available >= item.quantity}">
+                                                                    <c:when test="${check.available >= check.item.quantity}">
                                                                         <span class="badge bg-success">
                                                                             <i class="bx bx-check"></i> Available
                                                                         </span>
@@ -229,25 +222,31 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        <c:forEach var="check" items="${availabilityCheck}" varStatus="status">
-                                                            <c:set var="item" value="${check.item}" />
-                                                            <c:set var="available" value="${check.available}" />
+                                                    <c:set var="allAvailable2" value="${true}" />
+                                                    <c:forEach var="check" items="${availability}">
+                                                        <c:if test="${check.available < check.item.quantity}">
+                                                            <c:set var="allAvailable2" value="${false}" />
+                                                        </c:if>
                                                             <tr>
                                                                 <td>
                                                                     <c:choose>
-                                                                        <c:when test="${not empty item.product}">${item.product.name}</c:when>
-                                                                        <c:otherwise>Product #${item.productId}</c:otherwise>
+                                                                        <c:when test="${not empty check.product}">${check.product.name}</c:when>
+                                                                        <c:otherwise>Product #${check.item.productId}</c:otherwise>
                                                                     </c:choose>
-                                                                    <input type="hidden" name="itemId[]" value="${item.id}">
+                                                                    <input type="hidden" name="productId[]" value="${check.item.productId}">
                                                                 </td>
-                                                                <td><code>${item.product.sku}</code></td>
-                                                                <td class="text-center">${item.quantity}</td>
-                                                                <td class="text-center">${available}</td>
+                                                                <td>
+                                                                    <c:if test="${not empty check.product}">
+                                                                        <code><c:out value="${check.product.sku}"/></code>
+                                                                    </c:if>
+                                                                </td>
+                                                                <td class="text-center"><c:out value="${check.item.quantity}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
+                                                                <td class="text-center"><c:out value="${check.available}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
                                                                 <td class="text-center">
                                                                     <input type="number" name="pickedQty[]" 
                                                                            class="form-control form-control-sm text-center"
-                                                                           value="${item.quantity <= available ? item.quantity : available}"
-                                                                           min="0" max="${available}" required>
+                                                                           value="<c:out value='${check.item.quantity <= check.available ? check.item.quantity : check.available}'/>"
+                                                                           min="0" max="${check.available}" required>
                                                                 </td>
                                                             </tr>
                                                         </c:forEach>
@@ -269,12 +268,12 @@
                                 <div class="alert alert-info">
                                     <i class="bx bx-info-circle me-2"></i>
                                     This transfer is not in a state that requires outbound execution.
-                                    Current status: <strong>${transfer.status}</strong>
+                                    Current status: <strong><c:out value="${transfer.status}"/></strong>
                                 </div>
                             </c:otherwise>
                         </c:choose>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

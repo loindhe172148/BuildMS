@@ -1,18 +1,9 @@
 package vn.edu.fpt.swp.service;
 
-import vn.edu.fpt.swp.model.RequestItem;
-import vn.edu.fpt.swp.model.Location;
-import vn.edu.fpt.swp.model.User;
-import vn.edu.fpt.swp.model.Request;
-import vn.edu.fpt.swp.model.Product;
-import vn.edu.fpt.swp.model.Warehouse;
-import vn.edu.fpt.swp.dao.RequestDAO;
-import vn.edu.fpt.swp.dao.InventoryDAO;
-import vn.edu.fpt.swp.dao.WarehouseDAO;
-import vn.edu.fpt.swp.dao.ProductDAO;
-import vn.edu.fpt.swp.dao.RequestItemDAO;
-import vn.edu.fpt.swp.dao.UserDAO;
-import vn.edu.fpt.swp.dao.LocationDAO;
+import vn.edu.fpt.swp.dao.*;
+import vn.edu.fpt.swp.model.*;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -239,11 +230,25 @@ public class InboundService {
             return false;
         }
         
-        // Update inventory for each item
+        // Ensure every item has a received quantity recorded before completing
         for (RequestItem item : items) {
             Integer receivedQty = item.getReceivedQuantity();
-            if (receivedQty == null || receivedQty <= 0) {
-                continue; // Skip items with no received quantity
+            if (receivedQty == null) {
+                return false; // Missing data — do not complete
+            }
+            if (receivedQty < 0) {
+                return false; // Invalid quantity
+            }
+        }
+        
+        // Update inventory for each item (skip zero but require explicit value)
+        for (RequestItem item : items) {
+            Integer receivedQty = item.getReceivedQuantity();
+            if (receivedQty == null) {
+                return false; // Defensive; should not happen
+            }
+            if (receivedQty == 0) {
+                continue; // Explicit zero received — nothing to add to inventory
             }
             
             Long locationId = item.getLocationId();
@@ -305,6 +310,10 @@ public class InboundService {
     public List<Request> searchInboundRequests(String status, Long warehouseId) {
         return requestDAO.search("Inbound", status, warehouseId);
     }
+
+    public PageResult<Request> searchInboundRequestsPaginated(String status, Long warehouseId, PageRequest pageRequest) {
+        return requestDAO.searchPaginated("Inbound", status, warehouseId, pageRequest);
+    }
     
     /**
      * Get request by ID
@@ -361,6 +370,14 @@ public class InboundService {
      */
     public List<Warehouse> getAllWarehouses() {
         return warehouseDAO.getAll();
+    }
+
+    /**
+     * Get all users — used for batch display on the list page.
+     * @return List of all users
+     */
+    public List<User> getAllUsers() {
+        return userDAO.getAll();
     }
     
     /**

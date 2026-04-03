@@ -1,19 +1,19 @@
 package vn.edu.fpt.swp.controller;
 
-import vn.edu.fpt.swp.model.Category;
-import vn.edu.fpt.swp.model.Location;
-import vn.edu.fpt.swp.model.User;
-import vn.edu.fpt.swp.model.Product;
-import vn.edu.fpt.swp.model.Warehouse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import vn.edu.fpt.swp.model.*;
 import vn.edu.fpt.swp.service.InventoryService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -91,19 +91,21 @@ public class InventoryController extends HttpServlet {
     }
     
     /**
-     * Check if user is Staff (restricted to assigned warehouse)
+     * Check if user is warehouse-scoped (Staff or Manager — restricted to assigned warehouse)
      */
-    private boolean isStaff(HttpServletRequest request) {
+    private boolean isWarehouseScoped(HttpServletRequest request) {
         User user = getCurrentUser(request);
-        return user != null && "Staff".equals(user.getRole());
+        if (user == null) return false;
+        String role = user.getRole();
+        return "Staff".equals(role) || "Manager".equals(role);
     }
     
     /**
-     * Get Staff's assigned warehouse ID
+     * Get the user's assigned warehouse ID (for Staff and Manager)
      */
-    private Long getStaffWarehouseId(HttpServletRequest request) {
+    private Long getAssignedWarehouseId(HttpServletRequest request) {
         User user = getCurrentUser(request);
-        if (user != null && "Staff".equals(user.getRole())) {
+        if (user != null && ("Staff".equals(user.getRole()) || "Manager".equals(user.getRole()))) {
             return user.getWarehouseId();
         }
         return null;
@@ -125,16 +127,16 @@ public class InventoryController extends HttpServlet {
         Long warehouseId = null;
         String warehouseIdStr = request.getParameter("warehouseId");
         
-        if (isStaff(request)) {
-            // Staff can only view their assigned warehouse
-            warehouseId = getStaffWarehouseId(request);
+        if (isWarehouseScoped(request)) {
+            // Staff and Manager can only view their assigned warehouse
+            warehouseId = getAssignedWarehouseId(request);
             if (warehouseId == null) {
                 request.setAttribute("errorMessage", "You are not assigned to any warehouse.");
                 request.getRequestDispatcher("/WEB-INF/views/inventory/by-warehouse.jsp").forward(request, response);
                 return;
             }
         } else {
-            // Admin/Manager can select any warehouse
+            // Admin can select any warehouse
             if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
                 try {
                     warehouseId = Long.parseLong(warehouseIdStr.trim());
@@ -144,10 +146,20 @@ public class InventoryController extends HttpServlet {
             }
         }
         
-        // Get warehouses for dropdown (hidden for Staff)
+        // Get warehouses for dropdown (hidden for Staff and Manager)
         List<Warehouse> warehouses = inventoryService.getAllWarehouses();
         request.setAttribute("warehouses", warehouses);
-        request.setAttribute("isStaff", isStaff(request));
+        request.setAttribute("isWarehouseScoped", isWarehouseScoped(request));
+
+        // Handle search within warehouse
+        String searchTerm = request.getParameter("search");
+        String normalizedSearchTerm = searchTerm != null ? searchTerm.trim() : null;
+        if (normalizedSearchTerm != null && normalizedSearchTerm.isEmpty()) {
+            normalizedSearchTerm = null;
+        }
+        request.setAttribute("searchTerm", normalizedSearchTerm);
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
         
         if (warehouseId != null) {
             // Get selected warehouse
@@ -158,16 +170,60 @@ public class InventoryController extends HttpServlet {
             // Get inventory grouped by location
             Map<Location, List<Map<String, Object>>> inventoryByLocation = 
                     inventoryService.getInventoryByWarehouse(warehouseId);
-            request.setAttribute("inventoryByLocation", inventoryByLocation);
+
+            Map<Location, List<Map<String, Object>>> filteredInventoryByLocation = new LinkedHashMap<>();
+            if (normalizedSearchTerm == null) {
+                filteredInventoryByLocation.putAll(inventoryByLocation);
+            } else {
+                String term = normalizedSearchTerm.toLowerCase();
+                for (Map.Entry<Location, List<Map<String, Object>>> entry : inventoryByLocation.entrySet()) {
+                    List<Map<String, Object>> matchedItems = new ArrayList<>();
+                    for (Map<String, Object> item : entry.getValue()) {
+                        Product product = (Product) item.get("product");
+                        if (product == null) {
+                            continue;
+                        }
+                        String sku = product.getSku() != null ? product.getSku().toLowerCase() : "";
+                        String name = product.getName() != null ? product.getName().toLowerCase() : "";
+                        if (sku.contains(term) || name.contains(term)) {
+                            matchedItems.add(item);
+                        }
+                    }
+                    if (!matchedItems.isEmpty()) {
+                        filteredInventoryByLocation.put(entry.getKey(), matchedItems);
+                    }
+                }
+            }
+
+            List<Map.Entry<Location, List<Map<String, Object>>>> locationEntries =
+                new ArrayList<>(filteredInventoryByLocation.entrySet());
+            int totalItems = locationEntries.size();
+            int totalPages = (int) Math.max(1L, (long) Math.ceil((double) totalItems / pageRequest.getSize()));
+            int currentPage = Math.min(pageRequest.getPage(), totalPages);
+            int fromIndex = Math.min((currentPage - 1) * pageRequest.getSize(), totalItems);
+            int toIndex = Math.min(fromIndex + pageRequest.getSize(), totalItems);
+
+            Map<Location, List<Map<String, Object>>> pagedInventoryByLocation = new LinkedHashMap<>();
+            for (Map.Entry<Location, List<Map<String, Object>>> entry : locationEntries.subList(fromIndex, toIndex)) {
+                pagedInventoryByLocation.put(entry.getKey(), entry.getValue());
+            }
+
+            Map<String, String> paginationParams = new LinkedHashMap<>();
+            paginationParams.put("warehouseId", String.valueOf(warehouseId));
+            paginationParams.put("search", normalizedSearchTerm);
+            paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+            request.setAttribute("inventoryByLocation", pagedInventoryByLocation);
+            request.setAttribute("currentPage", currentPage);
+            request.setAttribute("totalPages", totalPages);
+            request.setAttribute("pageSize", pageRequest.getSize());
+            request.setAttribute("totalItems", totalItems);
+            request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/inventory", "byWarehouse", paginationParams));
             
             // Get summary
             Map<String, Integer> summary = inventoryService.getWarehouseSummary(warehouseId);
             request.setAttribute("summary", summary);
         }
-        
-        // Handle search within warehouse
-        String searchTerm = request.getParameter("search");
-        request.setAttribute("searchTerm", searchTerm);
         
         request.getRequestDispatcher("/WEB-INF/views/inventory/by-warehouse.jsp").forward(request, response);
     }
@@ -202,14 +258,30 @@ public class InventoryController extends HttpServlet {
         // Search products if search term provided
         if (searchTerm != null && !searchTerm.trim().isEmpty()) {
             List<Product> searchResults = inventoryService.searchProducts(searchTerm);
-            request.setAttribute("searchResults", searchResults);
+            PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+            int totalItems = searchResults.size();
+            int totalPages = (int) Math.max(1L, (long) Math.ceil((double) totalItems / pageRequest.getSize()));
+            int currentPage = Math.min(pageRequest.getPage(), totalPages);
+            int fromIndex = Math.min((currentPage - 1) * pageRequest.getSize(), totalItems);
+            int toIndex = Math.min(fromIndex + pageRequest.getSize(), totalItems);
+
+            request.setAttribute("searchResults", searchResults.subList(fromIndex, toIndex));
+            request.setAttribute("currentPage", currentPage);
+            request.setAttribute("totalPages", totalPages);
+            request.setAttribute("pageSize", pageRequest.getSize());
+            request.setAttribute("totalItems", totalItems);
+
+            Map<String, String> paginationParams = new LinkedHashMap<>();
+            paginationParams.put("search", searchTerm.trim());
+            paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+            request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/inventory", "byProduct", paginationParams));
         }
         
-        // Get Staff warehouse filter if applicable
+        // Get warehouse filter for Staff/Manager
         Long warehouseFilter = null;
-        if (isStaff(request)) {
-            warehouseFilter = getStaffWarehouseId(request);
-            request.setAttribute("isStaff", true);
+        if (isWarehouseScoped(request)) {
+            warehouseFilter = getAssignedWarehouseId(request);
+            request.setAttribute("isWarehouseScoped", true);
         }
         
         if (productId != null) {
@@ -221,7 +293,24 @@ public class InventoryController extends HttpServlet {
                 // Get inventory for product
                 List<Map<String, Object>> inventoryList = 
                         inventoryService.getInventoryByProduct(productId, warehouseFilter);
-                request.setAttribute("inventoryList", inventoryList);
+
+                PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+                int totalItems = inventoryList.size();
+                int totalPages = (int) Math.max(1L, (long) Math.ceil((double) totalItems / pageRequest.getSize()));
+                int currentPage = Math.min(pageRequest.getPage(), totalPages);
+                int fromIndex = Math.min((currentPage - 1) * pageRequest.getSize(), totalItems);
+                int toIndex = Math.min(fromIndex + pageRequest.getSize(), totalItems);
+
+                request.setAttribute("inventoryList", inventoryList.subList(fromIndex, toIndex));
+                request.setAttribute("currentPage", currentPage);
+                request.setAttribute("totalPages", totalPages);
+                request.setAttribute("pageSize", pageRequest.getSize());
+                request.setAttribute("totalItems", totalItems);
+
+                Map<String, String> paginationParams = new LinkedHashMap<>();
+                paginationParams.put("productId", String.valueOf(productId));
+                paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+                request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/inventory", "byProduct", paginationParams));
                 
                 // Get summary
                 Map<String, Integer> summary = 
@@ -257,10 +346,10 @@ public class InventoryController extends HttpServlet {
         Integer minQuantity = null;
         Integer maxQuantity = null;
         
-        // Parse warehouse ID (Staff can only search their assigned warehouse)
-        if (isStaff(request)) {
-            warehouseId = getStaffWarehouseId(request);
-            request.setAttribute("isStaff", true);
+        // Parse warehouse ID (Staff and Manager can only search their assigned warehouse)
+        if (isWarehouseScoped(request)) {
+            warehouseId = getAssignedWarehouseId(request);
+            request.setAttribute("isWarehouseScoped", true);
         } else if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
             try {
                 warehouseId = Long.parseLong(warehouseIdStr.trim());
@@ -310,8 +399,31 @@ public class InventoryController extends HttpServlet {
         // Perform search
         List<Map<String, Object>> searchResults = inventoryService.searchInventory(
                 searchTerm, warehouseId, categoryId, minQuantity, maxQuantity);
-        request.setAttribute("searchResults", searchResults);
-        request.setAttribute("resultCount", searchResults.size());
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        int totalItems = searchResults.size();
+        int totalPages = (int) Math.max(1L, (long) Math.ceil((double) totalItems / pageRequest.getSize()));
+        int currentPage = Math.min(pageRequest.getPage(), totalPages);
+        int fromIndex = Math.min((currentPage - 1) * pageRequest.getSize(), totalItems);
+        int toIndex = Math.min(fromIndex + pageRequest.getSize(), totalItems);
+
+        List<Map<String, Object>> pagedResults = searchResults.subList(fromIndex, toIndex);
+
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("q", searchTerm);
+        paginationParams.put("warehouseId", warehouseId != null ? String.valueOf(warehouseId) : null);
+        paginationParams.put("categoryId", categoryId != null ? String.valueOf(categoryId) : null);
+        paginationParams.put("minQty", minQuantity != null ? String.valueOf(minQuantity) : null);
+        paginationParams.put("maxQty", maxQuantity != null ? String.valueOf(maxQuantity) : null);
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("searchResults", pagedResults);
+        request.setAttribute("resultCount", totalItems);
+        request.setAttribute("currentPage", currentPage);
+        request.setAttribute("totalPages", totalPages);
+        request.setAttribute("pageSize", pageRequest.getSize());
+        request.setAttribute("totalItems", totalItems);
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/inventory", "search", paginationParams));
         
         request.getRequestDispatcher("/WEB-INF/views/inventory/search.jsp").forward(request, response);
     }

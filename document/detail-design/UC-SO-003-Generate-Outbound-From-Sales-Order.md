@@ -5,9 +5,9 @@
 |-----------|-------------|
 | **Use Case ID** | UC-SO-003 |
 | **Use Case Name** | Generate Outbound Request from Sales Order |
-| **Primary Actor** | Manager |
+| **Primary Actor** | Sales |
 | **Description** | Create outbound warehouse request to fulfill a confirmed sales order |
-| **Preconditions** | Manager is logged in; Sales Order exists with status "Confirmed" |
+| **Preconditions** | User is logged in with Sales or Admin role; Sales Order exists with status "Confirmed" |
 | **Postconditions** | Outbound Request created; Sales Order status updated to "Fulfillment Requested" |
 
 ---
@@ -15,12 +15,12 @@
 ## Main Flow
 
 ### Step 1: Navigate to Confirmed Sales Orders
-- Manager navigates to Sales Order Management section
+- Sales/Admin navigates to Sales Order Management section
 - System displays list of sales orders
-- Manager filters by status "Confirmed"
+- Sales/Admin filters by status "Confirmed"
 
 ### Step 2: Select Order for Fulfillment
-- Manager clicks on a confirmed order
+- Sales/Admin clicks on a confirmed order
 - System displays order detail page
 
 ### Step 3: Display Order Details
@@ -35,22 +35,22 @@
     - Remaining to fulfill
 
 ### Step 4: Check Inventory Availability
-- Manager clicks "Check Availability" or system auto-displays
+- Sales/Admin clicks "Check Availability" or system auto-displays
 - For each order item:
   - System displays available inventory across warehouses
   - System highlights if insufficient inventory
-- This is informational - Manager makes the decision
+- This is informational - Sales/Admin makes the decision
 
 ### Step 5: Initiate Outbound Request
-- Manager clicks "Generate Outbound Request" button
+- Sales/Admin clicks "Generate Outbound Request" button
 - System displays outbound request configuration form
 
 ### Step 6: Configure Outbound Request
-- Manager specifies:
+- Sales/Admin specifies:
   - Source Warehouse (dropdown, required)
   - Quantities to fulfill for each item (defaults to remaining)
   - Shipping notes (optional)
-- Manager can adjust quantities (partial fulfillment allowed)
+- Sales/Admin can adjust quantities (partial fulfillment allowed)
 
 ### Step 7: Validate Outbound Request
 - **Validation Rules:**
@@ -67,7 +67,7 @@
   - Status: "Created"
   - Source Warehouse ID
   - Reference: SalesOrder ID
-  - Created By: Current Manager's ID
+  - Created By: Current user's ID
   - Created Date: Current timestamp
   - Notes
 
@@ -86,7 +86,7 @@
 
 ### Step 11: Display Confirmation
 - System displays success message: "Outbound Request [ID] created for Sales Order [SO-ID]"
-- Manager can proceed to approve the request
+- Manager/Admin can proceed to approve the request
 
 ---
 
@@ -105,16 +105,16 @@
 - **Trigger:** Requested quantity exceeds available inventory
 - **Steps:**
   1. System displays warning: "Insufficient inventory for [Product]. Available: [X], Requested: [Y]"
-  2. Manager can:
+  2. Sales/Admin can:
      - Reduce quantity to available amount
      - Proceed anyway (back-order scenario)
      - Cancel and wait for inventory
   3. If proceeding, continue to Step 8
 
 ### A3: Partial Fulfillment
-- **Trigger:** Manager chooses to fulfill only part of order
+- **Trigger:** Sales/Admin chooses to fulfill only part of order
 - **Steps:**
-  1. Manager adjusts quantities for partial fulfillment
+  1. Sales/Admin adjusts quantities for partial fulfillment
   2. System validates partial quantities
   3. Continue to Step 8
   4. Sales Order status becomes "Partially Shipped" after execution
@@ -124,10 +124,10 @@
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-GEN-001 | Only Manager can generate outbound from sales orders |
+| BR-GEN-001 | Only Sales and Admin can generate outbound from sales orders |
 | BR-GEN-002 | Only "Confirmed" orders can have outbound generated |
 | BR-GEN-003 | Outbound request must reference the sales order |
-| BR-GEN-004 | Manager manually checks inventory availability |
+| BR-GEN-004 | Sales/Admin manually checks inventory availability |
 | BR-GEN-005 | Partial fulfillment is allowed |
 | BR-GEN-006 | Inventory is NOT reduced at this stage |
 
@@ -137,9 +137,9 @@
 | Role | Permission |
 |------|------------|
 | Admin | ✓ Can generate outbound requests |
-| Manager | ✓ Can generate outbound requests |
+| Manager | ✗ Cannot generate outbound requests (View Only) |
 | Staff | ✗ Cannot generate outbound requests |
-| Sales | ✗ Cannot generate outbound requests |
+| Sales | ✓ Can generate outbound requests |
 
 ---
 
@@ -172,4 +172,4 @@ Confirmed → Fulfillment Requested (Outbound request generated)
 - This step links Sales domain to Warehouse domain
 - Inventory is checked but NOT modified
 - Actual inventory reduction happens during request execution
-- Manager is responsible for availability decisions
+- Sales/Admin is responsible for availability decisions

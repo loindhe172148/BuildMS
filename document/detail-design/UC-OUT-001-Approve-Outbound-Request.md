@@ -107,11 +107,13 @@
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-APO-001 | Only Manager can approve/reject outbound requests |
+| BR-APO-001 | Only Admin and Manager can approve/reject outbound requests |
 | BR-APO-002 | Only "Created" requests can be approved |
 | BR-APO-003 | Rejection requires a reason |
 | BR-APO-004 | Inventory check is displayed but not enforced |
 | BR-APO-005 | Rejected sales-driven requests revert SO status |
+| BR-APO-006 | Manager can only approve/reject outbound requests for their assigned warehouse |
+| BR-APO-007 | Manager can only view/list outbound requests for their assigned warehouse |
 
 ---
 

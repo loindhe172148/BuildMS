@@ -48,14 +48,6 @@
                         <!-- Alerts -->
                         <jsp:include page="/WEB-INF/common/alerts.jsp" />
                         
-                        <c:if test="${not empty param.success}">
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <i class="bx bx-check-circle me-2"></i>
-                                ${param.success}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        </c:if>
-                        
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h4 class="mb-0">
@@ -76,13 +68,13 @@
                                         <label class="form-label">Status</label>
                                         <select name="status" class="form-select">
                                             <option value="">All Status</option>
-                                            <option value="Created" ${selectedStatus == 'Created' ? 'selected' : ''}>Created</option>
-                                            <option value="Approved" ${selectedStatus == 'Approved' ? 'selected' : ''}>Approved</option>
-                                            <option value="InProgress" ${selectedStatus == 'InProgress' ? 'selected' : ''}>Outbound In Progress</option>
-                                            <option value="InTransit" ${selectedStatus == 'InTransit' ? 'selected' : ''}>In Transit</option>
-                                            <option value="Receiving" ${selectedStatus == 'Receiving' ? 'selected' : ''}>Receiving</option>
-                                            <option value="Completed" ${selectedStatus == 'Completed' ? 'selected' : ''}>Completed</option>
-                                            <option value="Rejected" ${selectedStatus == 'Rejected' ? 'selected' : ''}>Rejected</option>
+                                            <option value="Created" <c:out value="${selectedStatus == 'Created' ? 'selected' : ''}"/>>Created</option>
+                                            <option value="Approved" <c:out value="${selectedStatus == 'Approved' ? 'selected' : ''}"/>>Approved</option>
+                                            <option value="InProgress" <c:out value="${selectedStatus == 'InProgress' ? 'selected' : ''}"/>>Outbound In Progress</option>
+                                            <option value="InTransit" <c:out value="${selectedStatus == 'InTransit' ? 'selected' : ''}"/>>In Transit</option>
+                                            <option value="Receiving" <c:out value="${selectedStatus == 'Receiving' ? 'selected' : ''}"/>>Receiving</option>
+                                            <option value="Completed" <c:out value="${selectedStatus == 'Completed' ? 'selected' : ''}"/>>Completed</option>
+                                            <option value="Rejected" <c:out value="${selectedStatus == 'Rejected' ? 'selected' : ''}"/>>Rejected</option>
                                         </select>
                                     </div>
                                     <div class="col-md-2 d-flex align-items-end">
@@ -96,8 +88,9 @@
                         
                         <!-- Transfers Table -->
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Transfer Request List</h5>
+                                <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
@@ -124,15 +117,15 @@
                                             <c:otherwise>
                                                 <c:forEach var="data" items="${transfers}">
                                                     <tr>
-                                                        <td><strong>#${data.request.id}</strong></td>
+                                                        <td><strong>#<c:out value="${data.request.id}"/></strong></td>
                                                         <td>
                                                             <c:if test="${not empty data.sourceWarehouse}">
-                                                                ${data.sourceWarehouse.name}
+                                                                <c:out value="${data.sourceWarehouse.name}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
                                                             <c:if test="${not empty data.destinationWarehouse}">
-                                                                ${data.destinationWarehouse.name}
+                                                                <c:out value="${data.destinationWarehouse.name}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
@@ -159,18 +152,19 @@
                                                                     <span class="badge bg-label-danger">Rejected</span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="badge bg-label-secondary">${data.request.status}</span>
+                                                                    <span class="badge bg-label-secondary"><c:out value="${data.request.status}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
                                                         <td>
                                                             <c:if test="${not empty data.creator}">
-                                                                ${data.creator.fullName}
+                                                                <c:out value="${data.creator.fullName}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
-                                                            <fmt:parseDate value="${data.request.createdAt}" pattern="yyyy-MM-dd'T'HH:mm" var="parsedDate" type="both" />
-                                                            <fmt:formatDate value="${parsedDate}" pattern="dd/MM/yyyy HH:mm" />
+                                                            <c:if test="${not empty data.request.createdAt}">
+                                                                <c:out value="${data.request.createdAt.toLocalDate()}"/> <c:out value="${data.request.createdAt.toLocalTime().toString().substring(0, 5)}"/>
+                                                            </c:if>
                                                         </td>
                                                         <td>
                                                             <div class="dropdown">
@@ -182,7 +176,8 @@
                                                                         <i class="bx bx-show me-1"></i> View Details
                                                                     </a>
                                                                     
-                                                                    <c:if test="${data.request.status == 'Created' && (currentUser.role == 'Admin' || currentUser.role == 'Manager')}">
+                                                                    <%-- Approve: only dest WH Manager or Admin, status=Created --%>
+                                                                    <c:if test="${data.request.status == 'Created' && (data.isAdmin || (data.isAtDestWH && currentUser.role == 'Manager'))}">
                                                                         <form action="${contextPath}/transfer" method="post" style="display: inline;">
                                                                             <input type="hidden" name="action" value="approve">
                                                                             <input type="hidden" name="id" value="${data.request.id}">
@@ -192,13 +187,15 @@
                                                                         </form>
                                                                     </c:if>
                                                                     
-                                                                    <c:if test="${data.request.status == 'Approved' || data.request.status == 'InProgress'}">
+                                                                    <%-- Execute Outbound: only source WH Staff/Manager or Admin --%>
+                                                                    <c:if test="${(data.request.status == 'Approved' || data.request.status == 'InProgress') && (data.isAdmin || data.isAtSourceWH)}">
                                                                         <a class="dropdown-item" href="${contextPath}/transfer?action=execute-outbound&id=${data.request.id}">
                                                                             <i class="bx bx-export me-1"></i> Execute Outbound
                                                                         </a>
                                                                     </c:if>
                                                                     
-                                                                    <c:if test="${data.request.status == 'InTransit' || data.request.status == 'Receiving'}">
+                                                                    <%-- Execute Inbound: only dest WH Staff/Manager or Admin --%>
+                                                                    <c:if test="${(data.request.status == 'InTransit' || data.request.status == 'Receiving') && (data.isAdmin || data.isAtDestWH)}">
                                                                         <a class="dropdown-item" href="${contextPath}/transfer?action=execute-inbound&id=${data.request.id}">
                                                                             <i class="bx bx-import me-1"></i> Execute Inbound
                                                                         </a>
@@ -213,9 +210,16 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="card-footer">
+                                <jsp:include page="/WEB-INF/common/pagination.jsp">
+                                    <jsp:param name="currentPage" value="${currentPage}" />
+                                    <jsp:param name="totalPages" value="${totalPages}" />
+                                    <jsp:param name="baseUrl" value="${paginationBaseUrl}" />
+                                </jsp:include>
+                            </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

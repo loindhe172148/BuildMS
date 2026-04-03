@@ -67,7 +67,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -83,7 +83,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-barcode"></i></span>
                                                     <input type="text" class="form-control" id="sku" name="sku" 
-                                                           value="${sku}" placeholder="e.g., PRD-001, SKU-ABC123"
+                                                           value="<c:out value='${sku}'/>" placeholder="e.g., PRD-001, SKU-ABC123"
                                                            required maxlength="100" />
                                                 </div>
                                                 <div class="form-text">
@@ -100,7 +100,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-package" aria-hidden="true"></i></span>
                                                     <input type="text" class="form-control" id="name" name="name" 
-                                                           value="${name}" placeholder="Enter product name"
+                                                           value="<c:out value='${name}'/>" placeholder="Enter product name"
                                                            required maxlength="255" />
                                                 </div>
                                             </div>
@@ -113,8 +113,8 @@
                                                 <select class="form-select" id="categoryId" name="categoryId" required>
                                                     <option value="">Select a category</option>
                                                     <c:forEach var="cat" items="${categories}">
-                                                        <option value="${cat.id}" ${categoryId == cat.id ? 'selected' : ''}>
-                                                            ${cat.name}
+                                                        <option value="<c:out value='${cat.id}'/>" <c:out value="${categoryId == cat.id ? 'selected' : ''}"/>>
+                                                            <c:out value="${cat.name}"/>
                                                         </option>
                                                     </c:forEach>
                                                 </select>
@@ -126,7 +126,7 @@
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="bx bx-ruler"></i></span>
                                                     <input type="text" class="form-control" id="unit" name="unit" 
-                                                           value="${unit}" placeholder="e.g., pcs, kg, box, carton"
+                                                           value="<c:out value='${unit}'/>" placeholder="e.g., pcs, kg, box, carton"
                                                            maxlength="50" list="unitSuggestions" />
                                                 </div>
                                                 <datalist id="unitSuggestions">
@@ -198,7 +198,7 @@
                             </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

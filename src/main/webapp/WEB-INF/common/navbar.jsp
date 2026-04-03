@@ -85,10 +85,10 @@
                         <span class="avatar-initial rounded-circle bg-label-primary">
                             <c:choose>
                                 <c:when test="${not empty currentUser.name}">
-                                    ${currentUser.name.substring(0,1).toUpperCase()}
+                                    <c:out value="${currentUser.name.substring(0,1).toUpperCase()}"/>
                                 </c:when>
                                 <c:otherwise>
-                                    ${currentUser.username.substring(0,1).toUpperCase()}
+                                    <c:out value="${currentUser.username.substring(0,1).toUpperCase()}"/>
                                 </c:otherwise>
                             </c:choose>
                         </span>
@@ -103,10 +103,10 @@
                                         <span class="avatar-initial rounded-circle bg-label-primary">
                                             <c:choose>
                                                 <c:when test="${not empty currentUser.name}">
-                                                    ${currentUser.name.substring(0,1).toUpperCase()}
+                                                    <c:out value="${currentUser.name.substring(0,1).toUpperCase()}"/>
                                                 </c:when>
                                                 <c:otherwise>
-                                                    ${currentUser.username.substring(0,1).toUpperCase()}
+                                                    <c:out value="${currentUser.username.substring(0,1).toUpperCase()}"/>
                                                 </c:otherwise>
                                             </c:choose>
                                         </span>
@@ -116,14 +116,19 @@
                                     <h6 class="mb-0">
                                         <c:choose>
                                             <c:when test="${not empty currentUser.name}">
-                                                ${currentUser.name}
+                                                <c:out value="${currentUser.name}"/>
                                             </c:when>
                                             <c:otherwise>
-                                                ${currentUser.username}
+                                                <c:out value="${currentUser.username}"/>
                                             </c:otherwise>
                                         </c:choose>
                                     </h6>
-                                    <small class="text-body-secondary">${currentUser.role}</small>
+                                    <small class="text-body-secondary"><c:out value="${currentUser.role}"/></small>
+                                    <c:if test="${not empty sessionScope.userWarehouseName}">
+                                        <small class="d-block text-body-secondary">
+                                            <i class="bx bx-building-house me-1"></i><c:out value="${sessionScope.userWarehouseName}"/>
+                                        </small>
+                                    </c:if>
                                 </div>
                             </div>
                         </a>

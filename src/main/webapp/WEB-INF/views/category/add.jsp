@@ -60,7 +60,7 @@
                                         <c:if test="${not empty errorMessage}">
                                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                                 <i class="bx bx-error-circle me-2"></i>
-                                                ${errorMessage}
+                                                <c:out value="${errorMessage}"/>
                                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                             </div>
                                         </c:if>
@@ -77,7 +77,7 @@
                                                        class="form-control" 
                                                        id="name" 
                                                        name="name" 
-                                                       value="${name}"
+                                                       value="<c:out value='${name}'/>"
                                                        placeholder="Enter category name" 
                                                        maxlength="255"
                                                        required 
@@ -92,7 +92,7 @@
                                                           name="description" 
                                                           rows="4" 
                                                           maxlength="500"
-                                                          placeholder="Enter category description (optional)">${description}</textarea>
+                                                          placeholder="Enter category description (optional)"><c:out value="${description}"/></textarea>
                                                 <div class="form-text">Maximum 500 characters</div>
                                             </div>
                                             
@@ -128,7 +128,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

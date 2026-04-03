@@ -117,13 +117,13 @@
   5. Discrepancy recorded for reporting
 
 ### A2: Insufficient Inventory
-- **Trigger:** Physical inventory is less than expected
+- **Trigger:** Available inventory at the warehouse is less than the requested quantity for one or more items and the item has not been fully picked yet
 - **Steps:**
-  1. Staff enters actual available quantity
-  2. System records discrepancy
-  3. Staff adds notes explaining shortage
-  4. Continue with available quantity
-  5. Manager is notified of inventory discrepancy
+  1. System detects the shortage when loading or refreshing the execute page
+  2. For each affected item, system displays an inline reason beneath the item row: "Insufficient inventory. Available: X, Still needed: Y"
+  3. The "Complete Outbound" button is **disabled** (greyed out) with a tooltip explaining that one or more items have insufficient stock
+  4. Staff must resolve the shortage (replenish stock or adjust the request) before completion is allowed
+  5. Once all items either have enough available inventory or have been fully picked, the Complete button becomes enabled automatically
 
 ### A3: Partial Execution
 - **Trigger:** Not all items can be picked at once
@@ -144,6 +144,7 @@
 | BR-EXO-003 | Inventory decreases only upon completion |
 | BR-EXO-004 | Picked quantity cannot exceed available inventory |
 | BR-EXO-005 | Sales Order is updated after outbound completion |
+| BR-EXO-006 | The Complete button is disabled when any item's available inventory is less than its remaining quantity to pick; an inline reason is displayed per affected item instead of a popup alert |
 
 ---
 
@@ -189,7 +190,8 @@ Partially Shipped → Completed (remaining items shipped)
 - Notes field for discrepancies
 - Progress indicator
 - Shipping details form
-- Complete button with confirmation
+- Complete button — disabled with explanatory tooltip when any item has insufficient inventory
+- Inline per-item shortage reason (instead of popup alert) showing available vs. still-needed quantity
 - Link to Sales Order (if applicable)
 - Record actual quantities picked
 - Record discrepancy notes

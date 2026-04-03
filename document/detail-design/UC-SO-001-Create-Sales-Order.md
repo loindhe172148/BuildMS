@@ -6,9 +6,9 @@
 | **Use Case ID** | UC-SO-001 |
 | **Use Case Name** | Create Sales Order |
 | **Primary Actor** | Sales |
-| **Secondary Actor** | Manager |
+| **Secondary Actor** | Admin |
 | **Description** | Create a new sales order as a trigger for outbound fulfillment |
-| **Preconditions** | User is logged in with Sales or Manager role; Customer exists; Products exist |
+| **Preconditions** | User is logged in with Sales or Admin role; Customer exists; Products exist |
 | **Postconditions** | Sales Order is created with status "Draft" |
 
 ---
@@ -109,12 +109,12 @@
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-SO-001 | Only Sales and Manager can create sales orders |
+| BR-SO-001 | Only Sales and Admin can create sales orders |
 | BR-SO-002 | Sales Order must have at least one item |
 | BR-SO-003 | Sales Order does NOT modify inventory directly |
 | BR-SO-004 | All quantities must be positive integers |
 | BR-SO-005 | Order is created with status "Draft" |
-| BR-SO-006 | Inventory availability is checked by Manager later |
+| BR-SO-006 | Inventory availability is checked by Sales/Admin later |
 
 ---
 
@@ -122,7 +122,7 @@
 | Role | Permission |
 |------|------------|
 | Admin | ✓ Can create sales orders |
-| Manager | ✓ Can create sales orders |
+| Manager | ✗ Cannot create sales orders (View Only) |
 | Staff | ✗ Cannot create sales orders |
 | Sales | ✓ Can create sales orders |
 
@@ -148,4 +148,4 @@
 ## Important Notes
 - **No inventory impact** at order creation
 - **No inventory validation** at order creation
-- Manager will verify availability when generating outbound request
+- Sales/Admin will verify availability when generating outbound request

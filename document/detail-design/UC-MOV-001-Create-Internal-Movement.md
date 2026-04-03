@@ -8,7 +8,7 @@
 | **Primary Actor** | Staff |
 | **Description** | Create a request to move goods between locations within the same warehouse |
 | **Preconditions** | Staff is logged in; Warehouse has multiple locations; Inventory exists at source location |
-| **Postconditions** | Internal movement request created |
+| **Postconditions** | Internal movement request created with status **Created**, awaiting Manager/Admin approval (see UC-MOV-003) |
 
 ---
 
@@ -24,12 +24,13 @@
 
 ### Step 3: Display Creation Form
 - System displays form with fields:
-  - Warehouse (dropdown or auto-selected based on Staff assignment)
+  - Warehouse (dropdown or auto-selected based on Staff/Manager assignment)
   - Movement Items section
   - Reason/Notes (text area, optional)
 
 ### Step 4: Select/Confirm Warehouse
-- Staff confirms or selects warehouse
+- **If Staff or Manager:** Warehouse is auto-selected to their assigned warehouse (read-only)
+- **If Admin:** Admin selects warehouse from dropdown
 - System loads locations within the warehouse
 
 ### Step 5: Add Movement Items
@@ -75,8 +76,8 @@
     - Quantity
 
 ### Step 10: Display Confirmation
-- System displays: "Internal Movement Request [ID] created"
-- Request may auto-execute or require approval based on configuration
+- System displays: "Internal Movement Request [ID] created successfully"
+- Request is now awaiting Manager/Admin approval before execution (see UC-MOV-003)
 
 ---
 
@@ -102,11 +103,12 @@
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-MOV-001 | Staff can create internal movement requests |
+| BR-MOV-001 | Staff and Manager can create internal movement requests |
 | BR-MOV-002 | Movement within same warehouse only |
 | BR-MOV-003 | Source and destination must be different |
 | BR-MOV-004 | Quantity limited by source availability |
 | BR-MOV-005 | Total warehouse inventory unchanged |
+| BR-MOV-006 | Staff and Manager are restricted to their assigned warehouse for movements |
 
 ---
 
@@ -134,7 +136,7 @@ Warehouse
 ---
 
 ## UI Requirements
-- Warehouse selection or auto-detection
+- Warehouse selection or auto-detection (auto for Staff and Manager)
 - Location dropdowns filtered by warehouse
 - Product search with location-specific inventory
 - Quantity validation against source

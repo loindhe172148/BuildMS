@@ -49,7 +49,7 @@
                        end="${currentPage + 2 < totalPages ? currentPage + 2 : totalPages}" 
                        var="i">
                 <li class="page-item ${i == currentPage ? 'active' : ''}">
-                    <a class="page-link" href="${baseUrl}&page=${i}">${i}</a>
+                    <a class="page-link" href="${baseUrl}&page=${i}"><c:out value="${i}"/></a>
                 </li>
             </c:forEach>
             
@@ -61,7 +61,7 @@
                     </li>
                 </c:if>
                 <li class="page-item">
-                    <a class="page-link" href="${baseUrl}&page=${totalPages}">${totalPages}</a>
+                    <a class="page-link" href="${baseUrl}&page=${totalPages}"><c:out value="${totalPages}"/></a>
                 </li>
             </c:if>
             
@@ -75,6 +75,6 @@
     </nav>
     
     <div class="text-center text-muted small">
-        Page ${currentPage} of ${totalPages}
+        Page <c:out value="${currentPage}"/> of <c:out value="${totalPages}"/>
     </div>
 </c:if>

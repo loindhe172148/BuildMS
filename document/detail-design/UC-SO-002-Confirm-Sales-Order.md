@@ -6,7 +6,7 @@
 | **Use Case ID** | UC-SO-002 |
 | **Use Case Name** | Confirm Sales Order |
 | **Primary Actor** | Sales |
-| **Secondary Actor** | Manager |
+| **Secondary Actor** | Admin |
 | **Description** | Confirm a draft sales order to make it ready for fulfillment |
 | **Preconditions** | User is logged in; Sales Order exists with status "Draft" |
 | **Postconditions** | Sales Order status changed to "Confirmed" |
@@ -58,7 +58,7 @@
 
 ### Step 8: Display Confirmation
 - System displays success message: "Sales Order [ID] has been confirmed"
-- Order is now ready for Manager to request fulfillment
+- Order is now ready for Sales/Admin to request fulfillment
 
 ---
 
@@ -84,7 +84,7 @@
 | Rule ID | Description |
 |---------|-------------|
 | BR-SOC-001 | Only Draft orders can be confirmed |
-| BR-SOC-002 | Sales and Manager can confirm orders |
+| BR-SOC-002 | Sales and Admin can confirm orders |
 | BR-SOC-003 | Confirmed orders cannot be edited (only cancelled) |
 | BR-SOC-004 | Confirmation does not affect inventory |
 
@@ -94,7 +94,7 @@
 | Role | Permission |
 |------|------------|
 | Admin | ✓ Can confirm orders |
-| Manager | ✓ Can confirm orders |
+| Manager | ✗ Cannot confirm orders (View Only) |
 | Staff | ✗ Cannot confirm orders |
 | Sales | ✓ Can confirm orders |
 
@@ -119,4 +119,4 @@ Draft → Confirmed (User confirms order)
 ## Notes
 - Confirmation is a prerequisite for fulfillment
 - Inventory is still NOT checked or reserved at this stage
-- Manager will generate outbound request after confirmation
+- Sales/Admin will generate outbound request after confirmation

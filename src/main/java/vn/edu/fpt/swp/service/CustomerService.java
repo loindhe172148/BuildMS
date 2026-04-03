@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.service;
 
 import vn.edu.fpt.swp.dao.CustomerDAO;
 import vn.edu.fpt.swp.model.Customer;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.util.List;
 
@@ -158,6 +160,10 @@ public class CustomerService {
     public List<Customer> searchCustomers(String keyword, String status) {
         return customerDAO.search(keyword, status);
     }
+
+    public PageResult<Customer> searchCustomersPaginated(String keyword, String status, PageRequest pageRequest) {
+        return customerDAO.searchPaginated(keyword, status, pageRequest);
+    }
     
     /**
      * Get order count for customer
@@ -166,6 +172,16 @@ public class CustomerService {
      */
     public int getOrderCount(Long customerId) {
         return customerDAO.getOrderCount(customerId);
+    }
+
+    /**
+     * Get order counts for ALL customers in one DB round-trip.
+     * Use this on the customer list page instead of calling getOrderCount() per customer.
+     *
+     * @return Map of customerId -> order count
+     */
+    public java.util.Map<Long, Integer> getAllOrderCounts() {
+        return customerDAO.getAllOrderCounts();
     }
     
     /**

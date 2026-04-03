@@ -38,9 +38,9 @@ Smart WMS is a standalone academic system. Sales and warehouse operations are lo
 
 | User Class           | Description                                            |
 | -------------------- | ------------------------------------------------------ |
-| Admin                | System configuration and master data management        |
-| Manager              | Inventory control, request approval, sales fulfillment |
-| Staff                | Physical warehouse operations                          |
+| Admin                | Master data management (products, categories, warehouses, locations) and user account management. Does not participate in warehouse operations or sales. |
+| Manager              | Inventory control, request approval and execution oversight, sales fulfillment, customer management |
+| Staff                | Physical warehouse operations (inbound, outbound, movement, transfer execution) |
 | Sales (logical role) | Create and manage SalesOrders (no warehouse access)    |
 
 **Authentication & Authorization:**
@@ -91,12 +91,14 @@ Smart WMS is a standalone academic system. Sales and warehouse operations are lo
 | ----------------- | ----- | ------- | ----- | ----- |
 | User Management   | ✓     | ✗       | ✗     | ✗     |
 | Warehouse Config  | ✓     | ✓       | ✗     | ✗     |
+| Location Config   | ✓     | ✓       | ✗     | ✗     |
 | Product CRUD      | ✓     | ✓       | View  | View  |
-| Inventory View    | ✓     | ✓       | ✓     | ✗     |
-| Request Approval  | ✓     | ✓       | ✗     | ✗     |
-| Request Execution | ✓     | ✓       | ✓     | ✗     |
-| Sales Orders      | ✓     | ✓       | ✗     | ✓     |
-| Reports           | ✓     | ✓       | View  | View  |
+| Category CRUD     | ✓     | ✓       | View  | View  |
+| Inventory View    | ✗     | ✓       | ✓     | ✗     |
+| Request Approval  | ✗     | ✓       | ✗     | ✗     |
+| Request Execution | ✗     | ✓       | ✓     | ✗     |
+| Sales Orders      | ✗     | ✓       | ✗     | ✓     |
+| Customer Mgmt     | ✗     | ✓       | ✗     | ✓     |
 
 ---
 
@@ -275,6 +277,10 @@ Smart WMS is a standalone academic system. Sales and warehouse operations are lo
 * Admin shall activate or deactivate user accounts.
 * Admin shall assign users to warehouses.
 * Admin shall view list of all users.
+
+> **Note:** Admin is scoped to master data and user management only. Admin does not
+> have access to warehouse operations (inbound, outbound, transfer, movement, inventory)
+> or commercial operations (customers, sales orders). Those belong to Manager/Staff/Sales.
 
 ---
 

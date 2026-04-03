@@ -2,6 +2,8 @@ package vn.edu.fpt.swp.dao;
 
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.util.DBConnection;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -262,6 +264,74 @@ public class UserDAO {
             e.printStackTrace();
         }
         return users;
+    }
+
+    public PageResult<User> searchPaginated(String keyword, String role, String status, Long warehouseId,
+                                            PageRequest pageRequest) {
+        List<User> users = new ArrayList<>();
+        StringBuilder fromClause = new StringBuilder(" FROM Users WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            fromClause.append(" AND (username LIKE ? OR email LIKE ? OR name LIKE ?)");
+            String pattern = "%" + keyword.trim() + "%";
+            params.add(pattern);
+            params.add(pattern);
+            params.add(pattern);
+        }
+
+        if (role != null && !role.trim().isEmpty()) {
+            fromClause.append(" AND role = ?");
+            params.add(role.trim());
+        }
+
+        if (status != null && !status.trim().isEmpty()) {
+            fromClause.append(" AND status = ?");
+            params.add(status.trim());
+        }
+
+        if (warehouseId != null && warehouseId > 0) {
+            fromClause.append(" AND warehouseId = ?");
+            params.add(warehouseId);
+        }
+
+        String countSql = "SELECT COUNT(*)" + fromClause;
+        String dataSql = "SELECT id, username, name, email, passwordHash, role, status, warehouseId, createdAt, lastLogin"
+            + fromClause + " ORDER BY name OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+
+        long totalItems = 0L;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement countStmt = conn.prepareStatement(countSql)) {
+
+            for (int i = 0; i < params.size(); i++) {
+                countStmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = countStmt.executeQuery()) {
+                if (rs.next()) {
+                    totalItems = rs.getLong(1);
+                }
+            }
+
+            try (PreparedStatement dataStmt = conn.prepareStatement(dataSql)) {
+                int index = 1;
+                for (Object param : params) {
+                    dataStmt.setObject(index++, param);
+                }
+                dataStmt.setInt(index++, pageRequest.getOffset());
+                dataStmt.setInt(index, pageRequest.getSize());
+
+                try (ResultSet rs = dataStmt.executeQuery()) {
+                    while (rs.next()) {
+                        users.add(mapResultSetToUser(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return PageResult.of(users, totalItems, pageRequest);
     }
     
     /**

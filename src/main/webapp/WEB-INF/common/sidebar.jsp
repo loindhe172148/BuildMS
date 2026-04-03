@@ -63,219 +63,179 @@
             </a>
         </li>
 
-        <!-- Inventory Management -->
+        <!-- ═══════════════════════════════════════════
+             CATALOG & SETUP
+             Products, Categories, Warehouses, Locations, Inventory
+             ═══════════════════════════════════════════ -->
         <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Inventory Management</span>
+            <span class="menu-header-text">Catalog &amp; Setup</span>
         </li>
 
-        <!-- Products -->
-        <li class="menu-item ${param.activeMenu == 'products' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <!-- Products — direct link; Add button available on list page -->
+        <li class="menu-item ${param.activeMenu == 'products' ? 'active' : ''}">
+            <a href="${contextPath}/product?action=list" class="menu-link">
                 <i class="menu-icon tf-icons bx bx-package"></i>
                 <div class="text-truncate">Products</div>
             </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'product-list' ? 'active' : ''}">
-                    <a href="${contextPath}/product?action=list" class="menu-link">
-                        <div class="text-truncate">Product List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
-                    <li class="menu-item ${param.activeSubMenu == 'product-add' ? 'active' : ''}">
-                        <a href="${contextPath}/product?action=add" class="menu-link">
-                            <div class="text-truncate">Add Product</div>
-                        </a>
-                    </li>
-                </c:if>
-            </ul>
         </li>
 
-        <!-- Categories -->
-        <li class="menu-item ${param.activeMenu == 'categories' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
+        <!-- Categories — Admin/Manager manage; others view -->
+        <li class="menu-item ${param.activeMenu == 'categories' ? 'active' : ''}">
+            <a href="${contextPath}/category?action=list" class="menu-link">
                 <i class="menu-icon tf-icons bx bx-category"></i>
                 <div class="text-truncate">Categories</div>
             </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'category-list' ? 'active' : ''}">
-                    <a href="${contextPath}/category?action=list" class="menu-link">
-                        <div class="text-truncate">Category List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
-                    <li class="menu-item ${param.activeSubMenu == 'category-add' ? 'active' : ''}">
-                        <a href="${contextPath}/category?action=add" class="menu-link">
-                            <div class="text-truncate">Add Category</div>
+        </li>
+
+        <!-- Warehouses — Admin/Manager only -->
+        <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
+            <li class="menu-item ${param.activeMenu == 'warehouses' ? 'active' : ''}">
+                <a href="${contextPath}/warehouse?action=list" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-building-house"></i>
+                    <div class="text-truncate">Warehouses</div>
+                </a>
+            </li>
+        </c:if>
+
+        <!-- Locations — Admin/Manager only (setup/config); Staff via Manager delegation -->
+        <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
+            <li class="menu-item ${param.activeMenu == 'locations' ? 'active' : ''}">
+                <a href="${contextPath}/location?action=list" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-map-pin"></i>
+                    <div class="text-truncate">Locations</div>
+                </a>
+            </li>
+        </c:if>
+
+        <!-- Inventory views — Manager/Staff only -->
+        <c:if test="${currentUser.role == 'Manager' || currentUser.role == 'Staff'}">
+            <li class="menu-item ${param.activeMenu == 'inventory' ? 'active open' : ''}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon tf-icons bx bx-box"></i>
+                    <div class="text-truncate">Inventory</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item ${param.activeSubMenu == 'inventory-warehouse' ? 'active' : ''}">
+                        <a href="${contextPath}/inventory?action=byWarehouse" class="menu-link">
+                            <div class="text-truncate">By Warehouse</div>
                         </a>
                     </li>
-                </c:if>
-            </ul>
-        </li>
-
-        <!-- Inventory -->
-        <li class="menu-item ${param.activeMenu == 'inventory' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-box"></i>
-                <div class="text-truncate">Inventory</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'inventory-warehouse' ? 'active' : ''}">
-                    <a href="${contextPath}/inventory?action=byWarehouse" class="menu-link">
-                        <div class="text-truncate">By Warehouse</div>
-                    </a>
-                </li>
-                <li class="menu-item ${param.activeSubMenu == 'inventory-product' ? 'active' : ''}">
-                    <a href="${contextPath}/inventory?action=byProduct" class="menu-link">
-                        <div class="text-truncate">By Product</div>
-                    </a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- Warehouse Operations -->
-        <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Warehouse Operations</span>
-        </li>
-
-        <!-- Warehouses -->
-        <li class="menu-item ${param.activeMenu == 'warehouses' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-building-house"></i>
-                <div class="text-truncate">Warehouses</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'warehouse-list' ? 'active' : ''}">
-                    <a href="${contextPath}/warehouse?action=list" class="menu-link">
-                        <div class="text-truncate">Warehouse List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin'}">
-                    <li class="menu-item ${param.activeSubMenu == 'warehouse-add' ? 'active' : ''}">
-                        <a href="${contextPath}/warehouse?action=add" class="menu-link">
-                            <div class="text-truncate">Add Warehouse</div>
+                    <li class="menu-item ${param.activeSubMenu == 'inventory-product' ? 'active' : ''}">
+                        <a href="${contextPath}/inventory?action=byProduct" class="menu-link">
+                            <div class="text-truncate">By Product</div>
                         </a>
                     </li>
-                </c:if>
-            </ul>
-        </li>
+                </ul>
+            </li>
+        </c:if>
 
-        <!-- Locations -->
-        <li class="menu-item ${param.activeMenu == 'locations' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-map-pin"></i>
-                <div class="text-truncate">Locations</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'location-list' ? 'active' : ''}">
-                    <a href="${contextPath}/location?action=list" class="menu-link">
-                        <div class="text-truncate">Location List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
-                    <li class="menu-item ${param.activeSubMenu == 'location-add' ? 'active' : ''}">
-                        <a href="${contextPath}/location?action=add" class="menu-link">
-                            <div class="text-truncate">Add Location</div>
+        <!-- ═══════════════════════════════════════════
+             OPERATIONS — Manager and Staff only
+             Admin is scoped to master data; operations belong to Manager/Staff
+             ═══════════════════════════════════════════ -->
+        <c:if test="${currentUser.role == 'Manager' || currentUser.role == 'Staff'}">
+            <li class="menu-header small text-uppercase">
+                <span class="menu-header-text">Operations</span>
+            </li>
+
+            <!-- Inbound -->
+            <li class="menu-item ${param.activeMenu == 'inbound' ? 'active open' : ''}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon tf-icons bx bx-log-in-circle"></i>
+                    <div class="text-truncate">Inbound</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item ${param.activeSubMenu == 'inbound-list' ? 'active' : ''}">
+                        <a href="${contextPath}/inbound?action=list" class="menu-link">
+                            <div class="text-truncate">Inbound List</div>
                         </a>
                     </li>
-                </c:if>
-            </ul>
-        </li>
-
-        <!-- Requests -->
-        <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Request Management</span>
-        </li>
-
-        <!-- Inbound Requests -->
-        <li class="menu-item ${param.activeMenu == 'inbound' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-log-in-circle"></i>
-                <div class="text-truncate">Inbound</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'inbound-list' ? 'active' : ''}">
-                    <a href="${contextPath}/inbound?action=list" class="menu-link">
-                        <div class="text-truncate">Inbound List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff'}">
                     <li class="menu-item ${param.activeSubMenu == 'inbound-create' ? 'active' : ''}">
                         <a href="${contextPath}/inbound?action=create" class="menu-link">
                             <div class="text-truncate">Create Request</div>
                         </a>
                     </li>
-                </c:if>
-            </ul>
-        </li>
+                </ul>
+            </li>
 
-        <!-- Outbound Requests -->
-        <li class="menu-item ${param.activeMenu == 'outbound' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-log-out-circle"></i>
-                <div class="text-truncate">Outbound</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'outbound-list' ? 'active' : ''}">
-                    <a href="${contextPath}/outbound?action=list" class="menu-link">
-                        <div class="text-truncate">Outbound List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff'}">
+            <!-- Outbound -->
+            <li class="menu-item ${param.activeMenu == 'outbound' ? 'active open' : ''}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon tf-icons bx bx-log-out-circle"></i>
+                    <div class="text-truncate">Outbound</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item ${param.activeSubMenu == 'outbound-list' ? 'active' : ''}">
+                        <a href="${contextPath}/outbound?action=list" class="menu-link">
+                            <div class="text-truncate">Outbound List</div>
+                        </a>
+                    </li>
                     <li class="menu-item ${param.activeSubMenu == 'outbound-create' ? 'active' : ''}">
                         <a href="${contextPath}/outbound?action=create" class="menu-link">
                             <div class="text-truncate">Create Request</div>
                         </a>
                     </li>
-                </c:if>
-            </ul>
-        </li>
+                </ul>
+            </li>
 
-        <!-- Internal Movement -->
-        <li class="menu-item ${param.activeMenu == 'movement' ? 'active open' : ''}">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon tf-icons bx bx-transfer"></i>
-                <div class="text-truncate">Movement</div>
-            </a>
-            <ul class="menu-sub">
-                <li class="menu-item ${param.activeSubMenu == 'movement-list' ? 'active' : ''}">
-                    <a href="${contextPath}/movement?action=list" class="menu-link">
-                        <div class="text-truncate">Movement List</div>
-                    </a>
-                </li>
-                <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff'}">
+            <!-- Internal Movement -->
+            <li class="menu-item ${param.activeMenu == 'movement' ? 'active open' : ''}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon tf-icons bx bx-transfer"></i>
+                    <div class="text-truncate">Movement</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item ${param.activeSubMenu == 'movement-list' ? 'active' : ''}">
+                        <a href="${contextPath}/movement?action=list" class="menu-link">
+                            <div class="text-truncate">Movement List</div>
+                        </a>
+                    </li>
                     <li class="menu-item ${param.activeSubMenu == 'movement-create' ? 'active' : ''}">
                         <a href="${contextPath}/movement?action=create" class="menu-link">
                             <div class="text-truncate">Create Movement</div>
                         </a>
                     </li>
-                </c:if>
-            </ul>
-        </li>
+                </ul>
+            </li>
 
-        <!-- Sales -->
-        <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales'}">
+            <!-- Inter-Warehouse Transfer -->
+            <li class="menu-item ${param.activeMenu == 'transfers' ? 'active open' : ''}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon tf-icons bx bx-shuffle"></i>
+                    <div class="text-truncate">Transfers</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item ${param.activeSubMenu == 'transfer-list' ? 'active' : ''}">
+                        <a href="${contextPath}/transfer?action=list" class="menu-link">
+                            <div class="text-truncate">Transfer List</div>
+                        </a>
+                    </li>
+                    <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
+                        <li class="menu-item ${param.activeSubMenu == 'transfer-create' ? 'active' : ''}">
+                            <a href="${contextPath}/transfer?action=create" class="menu-link">
+                                <div class="text-truncate">Create Transfer</div>
+                            </a>
+                        </li>
+                    </c:if>
+                </ul>
+            </li>
+        </c:if>
+
+        <!-- ═══════════════════════════════════════════
+             SALES — Manager and Sales only
+             Admin does not handle commercial operations
+             ═══════════════════════════════════════════ -->
+        <c:if test="${currentUser.role == 'Manager' || currentUser.role == 'Sales'}">
             <li class="menu-header small text-uppercase">
                 <span class="menu-header-text">Sales</span>
             </li>
 
-            <!-- Customers -->
-            <li class="menu-item ${param.activeMenu == 'customers' ? 'active open' : ''}">
-                <a href="javascript:void(0);" class="menu-link menu-toggle">
+            <!-- Customers — direct link; Add button on list page -->
+            <li class="menu-item ${param.activeMenu == 'customers' ? 'active' : ''}">
+                <a href="${contextPath}/customer?action=list" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-user-circle"></i>
                     <div class="text-truncate">Customers</div>
                 </a>
-                <ul class="menu-sub">
-                    <li class="menu-item ${param.activeSubMenu == 'customer-list' ? 'active' : ''}">
-                        <a href="${contextPath}/customer?action=list" class="menu-link">
-                            <div class="text-truncate">Customer List</div>
-                        </a>
-                    </li>
-                    <li class="menu-item ${param.activeSubMenu == 'customer-add' ? 'active' : ''}">
-                        <a href="${contextPath}/customer?action=add" class="menu-link">
-                            <div class="text-truncate">Add Customer</div>
-                        </a>
-                    </li>
-                </ul>
             </li>
 
             <!-- Sales Orders -->
@@ -299,54 +259,27 @@
             </li>
         </c:if>
 
-        <!-- Administration -->
+        <!-- ═══════════════════════════════════════════
+             ADMINISTRATION — Admin only
+             User management (Suppliers removed: not implemented)
+             ═══════════════════════════════════════════ -->
         <c:if test="${currentUser.role == 'Admin'}">
             <li class="menu-header small text-uppercase">
                 <span class="menu-header-text">Administration</span>
             </li>
 
-            <!-- User Management -->
-            <li class="menu-item ${param.activeMenu == 'users' ? 'active open' : ''}">
-                <a href="javascript:void(0);" class="menu-link menu-toggle">
+            <!-- Users — direct link; Add button on list page -->
+            <li class="menu-item ${param.activeMenu == 'users' ? 'active' : ''}">
+                <a href="${contextPath}/user?action=list" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-group"></i>
                     <div class="text-truncate">Users</div>
                 </a>
-                <ul class="menu-sub">
-                    <li class="menu-item ${param.activeSubMenu == 'user-list' ? 'active' : ''}">
-                        <a href="${contextPath}/user?action=list" class="menu-link">
-                            <div class="text-truncate">User List</div>
-                        </a>
-                    </li>
-                    <li class="menu-item ${param.activeSubMenu == 'user-add' ? 'active' : ''}">
-                        <a href="${contextPath}/user?action=add" class="menu-link">
-                            <div class="text-truncate">Add User</div>
-                        </a>
-                    </li>
-                </ul>
-            </li>
-
-            <!-- Suppliers -->
-            <li class="menu-item ${param.activeMenu == 'suppliers' ? 'active open' : ''}">
-                <a href="javascript:void(0);" class="menu-link menu-toggle">
-                    <i class="menu-icon tf-icons bx bx-store"></i>
-                    <div class="text-truncate">Suppliers</div>
-                </a>
-                <ul class="menu-sub">
-                    <li class="menu-item ${param.activeSubMenu == 'supplier-list' ? 'active' : ''}">
-                        <a href="${contextPath}/supplier?action=list" class="menu-link">
-                            <div class="text-truncate">Supplier List</div>
-                        </a>
-                    </li>
-                    <li class="menu-item ${param.activeSubMenu == 'supplier-add' ? 'active' : ''}">
-                        <a href="${contextPath}/supplier?action=add" class="menu-link">
-                            <div class="text-truncate">Add Supplier</div>
-                        </a>
-                    </li>
-                </ul>
             </li>
         </c:if>
 
-        <!-- Account -->
+        <!-- ═══════════════════════════════════════════
+             ACCOUNT — All users
+             ═══════════════════════════════════════════ -->
         <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Account</span>
         </li>

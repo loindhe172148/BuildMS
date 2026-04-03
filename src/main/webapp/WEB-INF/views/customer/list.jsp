@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 <c:set var="currentUser" value="${sessionScope.user}" />
 
@@ -20,7 +21,6 @@
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
                 <jsp:param name="activeMenu" value="customers" />
-                <jsp:param name="activeSubMenu" value="customer-list" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -48,7 +48,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -57,7 +57,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -66,7 +66,7 @@
                         <c:if test="${not empty sessionScope.warningMessage}">
                             <div class="alert alert-warning alert-dismissible fade show" role="alert">
                                 <i class="bx bx-info-circle me-2"></i>
-                                ${sessionScope.warningMessage}
+                                <c:out value="${sessionScope.warningMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="warningMessage" scope="session" />
@@ -93,7 +93,7 @@
                                         <div class="input-group">
                                             <span class="input-group-text"><i class="bx bx-search"></i></span>
                                             <input type="text" class="form-control" name="keyword" 
-                                                   value="${keyword}" placeholder="Search by code or name..." />
+                                                   value="<c:out value='${keyword}'/>" placeholder="Search by code or name..." />
                                         </div>
                                     </div>
                                     
@@ -101,8 +101,8 @@
                                     <div class="col-md-3">
                                         <select class="form-select" name="status">
                                             <option value="">All Status</option>
-                                            <option value="Active" ${status == 'Active' ? 'selected' : ''}>Active</option>
-                                            <option value="Inactive" ${status == 'Inactive' ? 'selected' : ''}>Inactive</option>
+                                            <option value="Active" <c:out value="${status == 'Active' ? 'selected' : ''}"/>>Active</option>
+                                            <option value="Inactive" <c:out value="${status == 'Inactive' ? 'selected' : ''}"/>>Inactive</option>
                                         </select>
                                     </div>
                                     
@@ -125,7 +125,7 @@
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Customers</h5>
-                                <span class="badge bg-primary">${customers.size()} total</span>
+                                <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
@@ -157,19 +157,19 @@
                                             </c:when>
                                             <c:otherwise>
                                                 <c:forEach var="customer" items="${customers}" varStatus="loop">
-                                                    <c:set var="orderCount" value="${requestScope['orderCount_'.concat(customer.id)]}" />
+                                                    <c:set var="orderCount" value="${orderCountMap[customer.id]}" />
                                                     <tr class="${customer.status == 'Inactive' ? 'table-secondary' : ''}">
-                                                        <td><strong>${loop.index + 1}</strong></td>
+                                                        <td><strong><c:out value="${(currentPage - 1) * pageSize + loop.index + 1}"/></strong></td>
                                                         <td>
-                                                            <span class="fw-medium">${customer.code}</span>
+                                                            <span class="fw-medium"><c:out value="${customer.code}"/></span>
                                                         </td>
-                                                        <td>${customer.name}</td>
+                                                        <td><c:out value="${customer.name}"/></td>
                                                         <td>
                                                             <c:choose>
                                                                 <c:when test="${not empty customer.contactInfo}">
                                                                     <span class="text-truncate d-inline-block" style="max-width: 200px;" 
-                                                                          title="${customer.contactInfo}">
-                                                                        ${customer.contactInfo}
+                                                                          title="${fn:escapeXml(customer.contactInfo)}">
+                                                                        <c:out value="${customer.contactInfo}"/>
                                                                     </span>
                                                                 </c:when>
                                                                 <c:otherwise>
@@ -179,7 +179,7 @@
                                                         </td>
                                                         <td>
                                                             <span class="badge bg-label-${orderCount > 0 ? 'info' : 'secondary'}">
-                                                                ${orderCount} order(s)
+                                                                <c:out value="${orderCount}"/> order(s)
                                                             </span>
                                                         </td>
                                                         <td>
@@ -200,17 +200,17 @@
                                                                    aria-label="Edit customer">
                                                                     <i class="bx bx-edit-alt" aria-hidden="true"></i>
                                                                 </a>
-                                                                <c:if test="${currentUser.role == 'Admin'}">
+                                                                <c:if test="${currentUser.role == 'Manager'}">
                                                                     <button type="button" 
                                                                             class="btn btn-sm ${customer.status == 'Active' ? 'btn-outline-warning' : 'btn-outline-success'}" 
                                                                             data-bs-toggle="modal" 
                                                                             data-bs-target="#toggleModal"
-                                                                            data-customer-id="${customer.id}"
-                                                                            data-customer-name="${customer.name}"
-                                                                            data-customer-status="${customer.status}"
+                                                                            data-customer-id="<c:out value='${customer.id}'/>"
+                                                                            data-customer-name="<c:out value='${customer.name}'/>"
+                                                                            data-customer-status="<c:out value='${customer.status}'/>"
                                                                             title="${customer.status == 'Active' ? 'Deactivate' : 'Activate'}"
                                                                             aria-label="${customer.status == 'Active' ? 'Deactivate customer' : 'Activate customer'}">
-                                                                        <i class="bx ${customer.status == 'Active' ? 'bx-block' : 'bx-check'}" aria-hidden="true"></i></i>
+                                                                        <i class="bx ${customer.status == 'Active' ? 'bx-block' : 'bx-check'}" aria-hidden="true"></i>
                                                                     </button>
                                                                 </c:if>
                                                             </div>
@@ -222,9 +222,16 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="card-footer">
+                                <jsp:include page="/WEB-INF/common/pagination.jsp">
+                                    <jsp:param name="currentPage" value="${currentPage}" />
+                                    <jsp:param name="totalPages" value="${totalPages}" />
+                                    <jsp:param name="baseUrl" value="${paginationBaseUrl}" />
+                                </jsp:include>
+                            </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->
@@ -243,7 +250,7 @@
     <!-- / Layout wrapper -->
     
     <!-- Toggle Status Confirmation Modal -->
-    <c:if test="${currentUser.role == 'Admin'}">
+    <c:if test="${currentUser.role == 'Manager'}">
         <div class="modal fade" id="toggleModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">

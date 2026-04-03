@@ -56,10 +56,11 @@
 
 | Rule ID | Description |
 |---------|-------------|
-| BR-USER-015 | Staff and Manager roles should have warehouse assignment |
+| BR-USER-015 | Staff and Manager roles **must** have warehouse assignment |
 | BR-USER-016 | Admin and Sales roles typically don't need warehouse assignment |
-| BR-USER-017 | User can only be assigned to one warehouse at a time |
-| BR-USER-018 | Warehouse assignment affects which inventory Staff can see/manage |
+| BR-USER-017 | User can only be assigned to **one** warehouse at a time |
+| BR-USER-018 | Warehouse assignment affects which inventory and requests **Staff and Manager** can see/manage |
+| BR-USER-019 | Manager is scoped to their assigned warehouse for all warehouse operations (create/approve requests, view inventory) |
 
 ---
 

@@ -45,29 +45,23 @@ public class AuthFilter implements Filter {
         ROLE_ACCESS_MAP.put("/user", new HashSet<>(Arrays.asList("Admin")));
         ROLE_ACCESS_MAP.put("/users", new HashSet<>(Arrays.asList("Admin")));
         
-        // Admin and Manager routes
+        // Admin and Manager routes (master data / config)
         Set<String> adminManager = new HashSet<>(Arrays.asList("Admin", "Manager"));
         ROLE_ACCESS_MAP.put("/warehouse", adminManager);
         ROLE_ACCESS_MAP.put("/warehouses", adminManager);
         ROLE_ACCESS_MAP.put("/location", adminManager);
         ROLE_ACCESS_MAP.put("/locations", adminManager);
-        ROLE_ACCESS_MAP.put("/category/add", adminManager);
-        ROLE_ACCESS_MAP.put("/category/edit", adminManager);
-        ROLE_ACCESS_MAP.put("/category/delete", adminManager);
-        ROLE_ACCESS_MAP.put("/product/add", adminManager);
-        ROLE_ACCESS_MAP.put("/product/edit", adminManager);
-        ROLE_ACCESS_MAP.put("/product/toggle", adminManager);
         
-        // Admin, Manager, Staff routes (warehouse operations)
-        Set<String> warehouseStaff = new HashSet<>(Arrays.asList("Admin", "Manager", "Staff"));
-        ROLE_ACCESS_MAP.put("/inbound", warehouseStaff);
-        ROLE_ACCESS_MAP.put("/outbound", warehouseStaff);
-        ROLE_ACCESS_MAP.put("/transfer", warehouseStaff);
-        ROLE_ACCESS_MAP.put("/movement", warehouseStaff);
-        ROLE_ACCESS_MAP.put("/inventory", warehouseStaff);
+        // Manager and Staff routes (warehouse operations)
+        Set<String> managerStaff = new HashSet<>(Arrays.asList("Manager", "Staff"));
+        ROLE_ACCESS_MAP.put("/inbound", managerStaff);
+        ROLE_ACCESS_MAP.put("/outbound", managerStaff);
+        ROLE_ACCESS_MAP.put("/transfer", managerStaff);
+        ROLE_ACCESS_MAP.put("/movement", managerStaff);
+        ROLE_ACCESS_MAP.put("/inventory", managerStaff);
         
-        // Sales routes
-        Set<String> salesAccess = new HashSet<>(Arrays.asList("Admin", "Manager", "Sales"));
+        // Sales routes (Manager and Sales only)
+        Set<String> salesAccess = new HashSet<>(Arrays.asList("Manager", "Sales"));
         ROLE_ACCESS_MAP.put("/sales-order", salesAccess);
         ROLE_ACCESS_MAP.put("/customer", salesAccess);
         ROLE_ACCESS_MAP.put("/customers", salesAccess);
@@ -135,11 +129,19 @@ public class AuthFilter implements Filter {
             }
         }
         
+        // Check forced logout (admin reset password / user deactivation)
+        User user = (User) session.getAttribute("user");
+        if (isForceLogout(httpRequest.getServletContext(), user.getId())) {
+            clearForceLogout(httpRequest.getServletContext(), user.getId());
+            session.invalidate();
+            redirectToLogin(httpRequest, httpResponse, false);
+            return;
+        }
+        
         // Step 2: Update activity timestamp (Step 2 of UC-AUTH-005)
         session.setAttribute("lastActivityTime", currentTime);
         
         // Role-based access control
-        User user = (User) session.getAttribute("user");
         if (!hasAccess(path, user.getRole())) {
             // User doesn't have access to this resource
             httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
@@ -218,6 +220,50 @@ public class AuthFilter implements Filter {
             response.sendRedirect(contextPath + "/auth?action=login&expired=true");
         } else {
             response.sendRedirect(contextPath + "/auth?action=login");
+        }
+    }
+    
+    // ========== Force Logout Support ==========
+    
+    private static final String FORCE_LOGOUT_KEY = "FORCE_LOGOUT_USER_IDS";
+    
+    /**
+     * Flag a user for forced logout (called from controllers)
+     * @param context ServletContext
+     * @param userId User ID to force out
+     */
+    @SuppressWarnings("unchecked")
+    public static void flagForceLogout(ServletContext context, Long userId) {
+        synchronized (context) {
+            Set<Long> ids = (Set<Long>) context.getAttribute(FORCE_LOGOUT_KEY);
+            if (ids == null) {
+                ids = new HashSet<>();
+            }
+            ids.add(userId);
+            context.setAttribute(FORCE_LOGOUT_KEY, ids);
+        }
+    }
+    
+    /**
+     * Check if a user is flagged for forced logout
+     */
+    @SuppressWarnings("unchecked")
+    private boolean isForceLogout(ServletContext context, Long userId) {
+        Set<Long> ids = (Set<Long>) context.getAttribute(FORCE_LOGOUT_KEY);
+        return ids != null && ids.contains(userId);
+    }
+    
+    /**
+     * Clear force logout flag for a user
+     */
+    @SuppressWarnings("unchecked")
+    private void clearForceLogout(ServletContext context, Long userId) {
+        synchronized (context) {
+            Set<Long> ids = (Set<Long>) context.getAttribute(FORCE_LOGOUT_KEY);
+            if (ids != null) {
+                ids.remove(userId);
+                context.setAttribute(FORCE_LOGOUT_KEY, ids);
+            }
         }
     }
 }

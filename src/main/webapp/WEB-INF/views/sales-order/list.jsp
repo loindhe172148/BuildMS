@@ -21,7 +21,7 @@
             <!-- Sidebar -->
             <jsp:include page="/WEB-INF/common/sidebar.jsp">
                 <jsp:param name="activeMenu" value="sales-orders" />
-                <jsp:param name="activeSubMenu" value="sales-order-list" />
+                <jsp:param name="activeSubMenu" value="order-list" />
             </jsp:include>
             
             <!-- Layout container -->
@@ -48,14 +48,6 @@
                         <!-- Alerts -->
                         <jsp:include page="/WEB-INF/common/alerts.jsp" />
                         
-                        <c:if test="${not empty param.success}">
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <i class="bx bx-check-circle me-2"></i>
-                                ${param.success}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        </c:if>
-                        
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h4 class="mb-0">
@@ -76,11 +68,11 @@
                                         <label class="form-label">Status</label>
                                         <select name="status" class="form-select">
                                             <option value="">All Status</option>
-                                            <option value="Draft" ${selectedStatus == 'Draft' ? 'selected' : ''}>Draft</option>
-                                            <option value="Confirmed" ${selectedStatus == 'Confirmed' ? 'selected' : ''}>Confirmed</option>
-                                            <option value="FulfillmentRequested" ${selectedStatus == 'FulfillmentRequested' ? 'selected' : ''}>Fulfillment Requested</option>
-                                            <option value="Completed" ${selectedStatus == 'Completed' ? 'selected' : ''}>Completed</option>
-                                            <option value="Cancelled" ${selectedStatus == 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+                                            <option value="Draft" <c:out value="${selectedStatus == 'Draft' ? 'selected' : ''}"/>>Draft</option>
+                                            <option value="Confirmed" <c:out value="${selectedStatus == 'Confirmed' ? 'selected' : ''}"/>>Confirmed</option>
+                                            <option value="FulfillmentRequested" <c:out value="${selectedStatus == 'FulfillmentRequested' ? 'selected' : ''}"/>>Fulfillment Requested</option>
+                                            <option value="Completed" <c:out value="${selectedStatus == 'Completed' ? 'selected' : ''}"/>>Completed</option>
+                                            <option value="Cancelled" <c:out value="${selectedStatus == 'Cancelled' ? 'selected' : ''}"/>>Cancelled</option>
                                         </select>
                                     </div>
                                     <div class="col-md-2 d-flex align-items-end">
@@ -94,8 +86,9 @@
                         
                         <!-- Orders Table -->
                         <div class="card">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Order List</h5>
+                                <span class="badge bg-primary">${totalItems} total</span>
                             </div>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
@@ -122,11 +115,11 @@
                                                 <c:forEach var="orderData" items="${orders}">
                                                     <tr>
                                                         <td>
-                                                            <strong>${orderData.order.orderNo}</strong>
+                                                            <strong><c:out value="${orderData.order.orderNo}"/></strong>
                                                         </td>
                                                         <td>
                                                             <c:if test="${not empty orderData.customer}">
-                                                                ${orderData.customer.name}
+                                                                <c:out value="${orderData.customer.name}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
@@ -147,18 +140,19 @@
                                                                     <span class="badge bg-label-danger">Cancelled</span>
                                                                 </c:when>
                                                                 <c:otherwise>
-                                                                    <span class="badge bg-label-secondary">${orderData.order.status}</span>
+                                                                    <span class="badge bg-label-secondary"><c:out value="${orderData.order.status}"/></span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>
                                                         <td>
                                                             <c:if test="${not empty orderData.creator}">
-                                                                ${orderData.creator.fullName}
+                                                                <c:out value="${orderData.creator.fullName}"/>
                                                             </c:if>
                                                         </td>
                                                         <td>
-                                                            <fmt:parseDate value="${orderData.order.createdAt}" pattern="yyyy-MM-dd'T'HH:mm" var="parsedDate" type="both" />
-                                                            <fmt:formatDate value="${parsedDate}" pattern="dd/MM/yyyy HH:mm" />
+                                                            <c:if test="${not empty orderData.order.createdAt}">
+                                                                <c:out value="${orderData.order.createdAt.toLocalDate()}"/> <c:out value="${orderData.order.createdAt.toLocalTime().toString().substring(0, 5)}"/>
+                                                            </c:if>
                                                         </td>
                                                         <td>
                                                             <div class="dropdown">
@@ -201,9 +195,16 @@
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="card-footer">
+                                <jsp:include page="/WEB-INF/common/pagination.jsp">
+                                    <jsp:param name="currentPage" value="${currentPage}" />
+                                    <jsp:param name="totalPages" value="${totalPages}" />
+                                    <jsp:param name="baseUrl" value="${paginationBaseUrl}" />
+                                </jsp:include>
+                            </div>
                         </div>
                         
-                    </div>
+                    </main>
                     <!-- / Content -->
                     
                     <!-- Footer -->

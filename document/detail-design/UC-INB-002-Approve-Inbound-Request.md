@@ -88,10 +88,11 @@
 ## Business Rules
 | Rule ID | Description |
 |---------|-------------|
-| BR-APR-001 | Only Manager can approve/reject inbound requests |
+| BR-APR-001 | Only Admin and Manager can approve/reject inbound requests |
 | BR-APR-002 | Only requests with status "Created" can be approved |
 | BR-APR-003 | Rejection requires a reason |
 | BR-APR-004 | Approver must be different from creator (optional rule) |
+| BR-APR-005 | Manager can only approve/reject inbound requests for their assigned warehouse |
 
 ---
 

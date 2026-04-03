@@ -1,23 +1,23 @@
 package vn.edu.fpt.swp.controller;
 
-import vn.edu.fpt.swp.model.RequestItem;
-import vn.edu.fpt.swp.model.Location;
-import vn.edu.fpt.swp.model.User;
-import vn.edu.fpt.swp.model.Request;
-import vn.edu.fpt.swp.model.Product;
-import vn.edu.fpt.swp.model.Warehouse;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import vn.edu.fpt.swp.model.*;
 import vn.edu.fpt.swp.service.InboundService;
+import vn.edu.fpt.swp.util.PageRequest;
+import vn.edu.fpt.swp.util.PageResult;
+import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller for Inbound Request Management
@@ -144,6 +144,36 @@ public class InboundController extends HttpServlet {
     }
     
     /**
+     * Get current user
+     */
+    private User getCurrentUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return null;
+        return (User) session.getAttribute("user");
+    }
+    
+    /**
+     * Check if user is warehouse-scoped (Staff or Manager — restricted to assigned warehouse)
+     */
+    private boolean isWarehouseScoped(HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        if (user == null) return false;
+        String role = user.getRole();
+        return "Staff".equals(role) || "Manager".equals(role);
+    }
+    
+    /**
+     * Get the user's assigned warehouse ID (for Staff and Manager)
+     */
+    private Long getAssignedWarehouseId(HttpServletRequest request) {
+        User user = getCurrentUser(request);
+        if (user != null && ("Staff".equals(user.getRole()) || "Manager".equals(user.getRole()))) {
+            return user.getWarehouseId();
+        }
+        return null;
+    }
+    
+    /**
      * UC-INB-004: List all inbound requests
      */
     private void listRequests(HttpServletRequest request, HttpServletResponse response)
@@ -153,7 +183,10 @@ public class InboundController extends HttpServlet {
         String warehouseIdStr = request.getParameter("warehouseId");
         
         Long warehouseId = null;
-        if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
+        if (isWarehouseScoped(request)) {
+            // Staff/Manager can only see requests for their assigned warehouse
+            warehouseId = getAssignedWarehouseId(request);
+        } else if (warehouseIdStr != null && !warehouseIdStr.trim().isEmpty()) {
             try {
                 warehouseId = Long.parseLong(warehouseIdStr.trim());
             } catch (NumberFormatException e) {
@@ -161,36 +194,47 @@ public class InboundController extends HttpServlet {
             }
         }
         
-        List<Request> requests;
-        if ((status != null && !status.trim().isEmpty()) || warehouseId != null) {
-            requests = inboundService.searchInboundRequests(status, warehouseId);
-        } else {
-            requests = inboundService.getAllInboundRequests();
+        String selectedStatus = status != null ? status.trim() : null;
+        if (selectedStatus != null && selectedStatus.isEmpty()) {
+            selectedStatus = null;
         }
+
+        PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
+        PageResult<Request> requestPage = inboundService.searchInboundRequestsPaginated(selectedStatus, warehouseId, pageRequest);
         
         // Get warehouses for filter
         List<Warehouse> warehouses = inboundService.getAllWarehouses();
-        
-        // Build lookup maps for display
-        for (Request req : requests) {
-            if (req.getCreatedBy() != null) {
-                User creator = inboundService.getUserById(req.getCreatedBy());
-                if (creator != null) {
-                    request.setAttribute("userName_" + req.getCreatedBy(), creator.getName());
-                }
-            }
-            if (req.getDestinationWarehouseId() != null) {
-                Warehouse wh = inboundService.getWarehouseById(req.getDestinationWarehouseId());
-                if (wh != null) {
-                    request.setAttribute("warehouseName_" + req.getDestinationWarehouseId(), wh.getName());
-                }
-            }
+
+        // Build lookup maps for display using pre-loaded collections (no N+1 DB calls)
+        java.util.Map<Long, String> warehouseMap = new java.util.HashMap<>();
+        for (Warehouse wh : warehouses) {
+            warehouseMap.put(wh.getId(), wh.getName());
         }
+        java.util.Map<Long, String> userMap = new java.util.HashMap<>();
+        for (User u : inboundService.getAllUsers()) {
+            userMap.put(u.getId(), u.getName());
+        }
+
+        request.setAttribute("warehouseMap", warehouseMap);
+        request.setAttribute("userMap", userMap);
         
-        request.setAttribute("requests", requests);
+        Map<String, String> paginationParams = new LinkedHashMap<>();
+        paginationParams.put("status", selectedStatus);
+        if (!isWarehouseScoped(request)) {
+            paginationParams.put("warehouseId", warehouseId != null ? String.valueOf(warehouseId) : null);
+        }
+        paginationParams.put("size", String.valueOf(pageRequest.getSize()));
+
+        request.setAttribute("requests", requestPage.getItems());
         request.setAttribute("warehouses", warehouses);
-        request.setAttribute("selectedStatus", status);
+        request.setAttribute("selectedStatus", selectedStatus);
         request.setAttribute("selectedWarehouseId", warehouseId);
+        request.setAttribute("isManager", isWarehouseScoped(request));
+        request.setAttribute("currentPage", requestPage.getCurrentPage());
+        request.setAttribute("totalPages", requestPage.getTotalPages());
+        request.setAttribute("pageSize", requestPage.getPageSize());
+        request.setAttribute("totalItems", requestPage.getTotalItems());
+        request.setAttribute("paginationBaseUrl", PaginationUtil.buildBaseUrl(request, "/inbound", paginationParams));
         
         request.getRequestDispatcher("/WEB-INF/views/inbound/list.jsp").forward(request, response);
     }
@@ -221,6 +265,18 @@ public class InboundController extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/product?action=add");
             return;
         }
+        
+        // Staff/Manager: pre-select and lock to their assigned warehouse
+        if (isWarehouseScoped(request)) {
+            Long assignedWarehouseId = getAssignedWarehouseId(request);
+            if (assignedWarehouseId == null) {
+                request.getSession().setAttribute("errorMessage", "You are not assigned to any warehouse.");
+                response.sendRedirect(request.getContextPath() + "/inbound");
+                return;
+            }
+            request.setAttribute("lockedWarehouseId", assignedWarehouseId);
+        }
+        request.setAttribute("isManager", isWarehouseScoped(request));
         
         request.setAttribute("warehouses", warehouses);
         request.setAttribute("products", products);
@@ -263,6 +319,16 @@ public class InboundController extends HttpServlet {
             }
             
             Long warehouseId = Long.parseLong(warehouseIdStr.trim());
+            
+            // Staff/Manager can only create for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(warehouseId)) {
+                    request.getSession().setAttribute("errorMessage", "You can only create inbound requests for your assigned warehouse.");
+                    response.sendRedirect(request.getContextPath() + "/inbound?action=create");
+                    return;
+                }
+            }
             
             // Validate items
             if (productIds == null || productIds.length == 0) {
@@ -353,6 +419,16 @@ public class InboundController extends HttpServlet {
                 return;
             }
             
+            // Staff/Manager can only view requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(inboundRequest.getDestinationWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to view this request.");
+                    response.sendRedirect(request.getContextPath() + "/inbound");
+                    return;
+                }
+            }
+            
             // Get items
             List<RequestItem> items = inboundService.getRequestItems(requestId);
             
@@ -388,6 +464,7 @@ public class InboundController extends HttpServlet {
                 if (product != null) {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
+                    request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
                 }
                 if (item.getLocationId() != null) {
                     Location location = inboundService.getLocationById(item.getLocationId());
@@ -443,6 +520,19 @@ public class InboundController extends HttpServlet {
         
         try {
             Long requestId = Long.parseLong(idStr.trim());
+            
+            // Staff/Manager can only approve requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request inboundRequest = inboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (inboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(inboundRequest.getDestinationWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to approve this request.");
+                    response.sendRedirect(request.getContextPath() + "/inbound");
+                    return;
+                }
+            }
+            
             Long userId = getCurrentUserId(request);
             
             boolean approved = inboundService.approveRequest(requestId, userId);
@@ -489,6 +579,19 @@ public class InboundController extends HttpServlet {
         
         try {
             Long requestId = Long.parseLong(idStr.trim());
+            
+            // Staff/Manager can only reject requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Request inboundRequest = inboundService.getRequestById(requestId);
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (inboundRequest == null || assignedWarehouseId == null
+                        || !assignedWarehouseId.equals(inboundRequest.getDestinationWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to reject this request.");
+                    response.sendRedirect(request.getContextPath() + "/inbound");
+                    return;
+                }
+            }
+            
             Long userId = getCurrentUserId(request);
             
             boolean rejected = inboundService.rejectRequest(requestId, userId, reason.trim());
@@ -542,6 +645,16 @@ public class InboundController extends HttpServlet {
                 return;
             }
             
+            // Staff/Manager can only execute requests for their assigned warehouse
+            if (isWarehouseScoped(request)) {
+                Long assignedWarehouseId = getAssignedWarehouseId(request);
+                if (assignedWarehouseId == null || !assignedWarehouseId.equals(inboundRequest.getDestinationWarehouseId())) {
+                    request.getSession().setAttribute("errorMessage", "You don't have permission to execute this request.");
+                    response.sendRedirect(request.getContextPath() + "/inbound");
+                    return;
+                }
+            }
+            
             // Get items
             List<RequestItem> items = inboundService.getRequestItems(requestId);
             
@@ -560,6 +673,7 @@ public class InboundController extends HttpServlet {
                 if (product != null) {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
+                    request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
                 }
                 if (item.getLocationId() != null) {
                     Location location = inboundService.getLocationById(item.getLocationId());
@@ -685,6 +799,13 @@ public class InboundController extends HttpServlet {
         try {
             Long requestId = Long.parseLong(idStr.trim());
             Long userId = getCurrentUserId(request);
+
+            boolean syncUpdated = syncReceivedItemsForCompletion(request, requestId);
+            if (!syncUpdated) {
+                request.getSession().setAttribute("errorMessage", "Failed to save received quantities. Please review item data and try again.");
+                response.sendRedirect(request.getContextPath() + "/inbound?action=execute&id=" + requestId);
+                return;
+            }
             
             boolean completed = inboundService.completeExecution(requestId, userId);
             
@@ -700,5 +821,49 @@ public class InboundController extends HttpServlet {
             request.getSession().setAttribute("errorMessage", "Invalid request ID.");
             response.sendRedirect(request.getContextPath() + "/inbound");
         }
+    }
+
+    /**
+     * Save received quantities sent from complete form before finishing execution.
+     */
+    private boolean syncReceivedItemsForCompletion(HttpServletRequest request, Long requestId) {
+        String[] productIds = request.getParameterValues("productId");
+        String[] receivedQuantities = request.getParameterValues("receivedQuantity");
+        String[] locationIds = request.getParameterValues("locationId");
+
+        if (productIds == null || receivedQuantities == null || locationIds == null) {
+            return false; // All three arrays are required for a consistent save
+        }
+
+        if (productIds.length != receivedQuantities.length || productIds.length != locationIds.length) {
+            return false;
+        }
+
+        for (int i = 0; i < productIds.length; i++) {
+            String productIdStr = productIds[i];
+            String receivedQtyStr = receivedQuantities[i];
+            String locationIdStr = locationIds[i];
+
+            if (productIdStr == null || productIdStr.trim().isEmpty() ||
+                receivedQtyStr == null || receivedQtyStr.trim().isEmpty() ||
+                locationIdStr == null || locationIdStr.trim().isEmpty()) {
+                return false;
+            }
+
+            try {
+                Long productId = Long.parseLong(productIdStr.trim());
+                Integer receivedQuantity = Integer.parseInt(receivedQtyStr.trim());
+                Long locationId = Long.parseLong(locationIdStr.trim());
+
+                boolean updated = inboundService.updateReceivedQuantity(requestId, productId, receivedQuantity, locationId);
+                if (!updated) {
+                    return false;
+                }
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -53,7 +53,7 @@
                         <c:if test="${not empty sessionScope.successMessage}">
                             <div class="alert alert-success alert-dismissible fade show" role="alert">
                                 <i class="bx bx-check-circle me-2"></i>
-                                ${sessionScope.successMessage}
+                                <c:out value="${sessionScope.successMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="successMessage" scope="session" />
@@ -62,7 +62,7 @@
                         <c:if test="${not empty sessionScope.errorMessage}">
                             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                                 <i class="bx bx-error-circle me-2"></i>
-                                ${sessionScope.errorMessage}
+                                <c:out value="${sessionScope.errorMessage}"/>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                             </div>
                             <c:remove var="errorMessage" scope="session" />
@@ -84,7 +84,7 @@
                                         <input type="hidden" name="action" value="create" />
                                         
                                         <c:choose>
-                                            <c:when test="${isStaff}">
+                                            <c:when test="${isWarehouseScoped}">
                                                 <p class="text-muted">You will be creating a movement in your assigned warehouse.</p>
                                                 <button type="submit" class="btn btn-primary">
                                                     <i class="bx bx-right-arrow-alt me-1"></i>Continue
@@ -97,7 +97,7 @@
                                                         <select class="form-select" name="warehouseId" required>
                                                             <option value="">-- Select Warehouse --</option>
                                                             <c:forEach var="wh" items="${warehouses}">
-                                                                <option value="${wh.id}">${wh.name}</option>
+                                                                <option value="${wh.id}"><c:out value="${wh.name}"/></option>
                                                             </c:forEach>
                                                         </select>
                                                     </div>
@@ -125,10 +125,10 @@
                                             <div>
                                                 <span class="text-muted">Warehouse:</span>
                                                 <strong class="ms-2">
-                                                    <i class="bx bx-building-house me-1"></i>${selectedWarehouse.name}
+                                                    <i class="bx bx-building-house me-1"></i><c:out value="${selectedWarehouse.name}"/>
                                                 </strong>
                                             </div>
-                                            <c:if test="${not isStaff}">
+                                            <c:if test="${not isWarehouseScoped}">
                                                 <a href="${contextPath}/movement?action=create" class="btn btn-sm btn-outline-secondary">
                                                     <i class="bx bx-edit me-1"></i>Change Warehouse
                                                 </a>
@@ -213,6 +213,7 @@
                 id: ${pi.product.id},
                 sku: '<c:out value="${pi.product.sku}" escapeXml="true"/>',
                 name: '<c:out value="${pi.product.name}" escapeXml="true"/>',
+                unit: '<c:out value="${pi.product.unit}" escapeXml="true"/>',
                 totalQty: ${pi.totalQuantity},
                 inventories: [
                     <c:forEach var="inv" items="${pi.inventories}" varStatus="invStatus">
@@ -240,36 +241,36 @@
             
             itemCounter++;
             const itemHtml = `
-                <div class="movement-item border rounded p-3 mb-3" id="item_${itemCounter}">
+                <div class="movement-item border rounded p-3 mb-3" id="item_\${itemCounter}">
                     <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h6 class="mb-0">Item #${itemCounter}</h6>
-                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${itemCounter})" aria-label="Remove item">
+                        <h6 class="mb-0">Item #\${itemCounter}</h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(\${itemCounter})" aria-label="Remove item">
                             <i class="bx bx-trash" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Product <span class="text-danger">*</span></label>
-                            <select class="form-select" name="productId" required onchange="onProductChange(${itemCounter}, this)">
+                            <select class="form-select" name="productId" required onchange="onProductChange(\${itemCounter}, this)">
                                 <option value="">-- Select Product --</option>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Quantity <span class="text-danger">*</span></label>
                             <input type="number" class="form-control" name="quantity" min="1" required 
-                                   placeholder="Enter quantity" id="qty_${itemCounter}">
-                            <small class="text-muted" id="availableQty_${itemCounter}"></small>
+                                   placeholder="Enter quantity" id="qty_\${itemCounter}">
+                            <small class="text-muted" id="availableQty_\${itemCounter}"></small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Source Location <span class="text-danger">*</span></label>
                             <select class="form-select" name="sourceLocationId" required 
-                                    id="sourceLocation_${itemCounter}" onchange="onSourceChange(${itemCounter}, this)">
+                                    id="sourceLocation_\${itemCounter}" onchange="onSourceChange(\${itemCounter}, this)">
                                 <option value="">-- Select Source Location --</option>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Destination Location <span class="text-danger">*</span></label>
-                            <select class="form-select" name="destinationLocationId" required id="destLocation_${itemCounter}">
+                            <select class="form-select" name="destinationLocationId" required id="destLocation_\${itemCounter}">
                                 <option value="">-- Select Destination Location --</option>
                             </select>
                         </div>
@@ -280,20 +281,20 @@
             document.getElementById('movementItems').insertAdjacentHTML('beforeend', itemHtml);
             
             // Populate product dropdown
-            const productSelect = document.querySelector(`#item_${itemCounter} select[name="productId"]`);
+            const productSelect = document.querySelector(`#item_\${itemCounter} select[name="productId"]`);
             productsWithInventory.forEach(p => {
                 const option = document.createElement('option');
                 option.value = p.id;
-                option.textContent = `${p.sku} - ${p.name} (Total: ${p.totalQty})`;
+                option.textContent = `\${p.sku} - \${p.name} (Total: \${p.totalQty} \${p.unit})`;
                 productSelect.appendChild(option);
             });
             
             // Populate destination location dropdown
-            const destSelect = document.getElementById(`destLocation_${itemCounter}`);
+            const destSelect = document.getElementById(`destLocation_\${itemCounter}`);
             locations.forEach(l => {
                 const option = document.createElement('option');
                 option.value = l.id;
-                option.textContent = `${l.code} (${l.type})`;
+                option.textContent = `\${l.code} (\${l.type})`;
                 destSelect.appendChild(option);
             });
         }
@@ -326,7 +327,7 @@
                 if (loc && inv.quantity > 0) {
                     const option = document.createElement('option');
                     option.value = inv.locationId;
-                    option.textContent = `${loc.code} (${loc.type}) - Qty: ${inv.quantity}`;
+                    option.textContent = `\${loc.code} (\${loc.type}) - Qty: \${inv.quantity} \${product.unit}`;
                     option.dataset.quantity = inv.quantity;
                     sourceSelect.appendChild(option);
                 }
@@ -339,7 +340,8 @@
             const availableQtyEl = document.getElementById('availableQty_' + itemId);
             const qtyInput = document.getElementById('qty_' + itemId);
             
-            availableQtyEl.textContent = `Available: ${availableQty}`;
+            const product = productsWithInventory.find(p => p.id === parseInt(document.querySelector(`#item_\${itemId} select[name="productId"]`).value));
+            availableQtyEl.textContent = `Available: \${availableQty}` + (product ? ` \${product.unit}` : '');
             qtyInput.max = availableQty;
         }
         
@@ -359,7 +361,7 @@
                 const destSelect = item.querySelector('[name="destinationLocationId"]');
                 
                 if (sourceSelect.value && destSelect.value && sourceSelect.value === destSelect.value) {
-                    alert(`Item #${index + 1}: Source and destination locations must be different.`);
+                    alert(`Item #\${index + 1}: Source and destination locations must be different.`);
                     hasError = true;
                 }
             });
