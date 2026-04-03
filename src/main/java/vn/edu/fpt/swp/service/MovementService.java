@@ -20,6 +20,7 @@ import java.util.Map;
  * 
  * UC-MOV-001: Create Internal Movement Request
  * UC-MOV-002: Execute Internal Movement
+ * UC-MOV-003: Approve Internal Movement Request
  */
 public class MovementService {
     
@@ -95,6 +96,13 @@ public class MovementService {
             if (destLocation == null || !destLocation.isActive() || 
                 !destLocation.getWarehouseId().equals(warehouseId)) {
                 return null; // Invalid destination location or not in same warehouse
+            }
+            
+            // BR-MOV-007: Destination location must be compatible with product's category
+            if (destLocation.getCategoryId() != null) {
+                if (product == null || !destLocation.getCategoryId().equals(product.getCategoryId())) {
+                    return null; // Destination restricted to different category
+                }
             }
             
             // BR-MOV-003: Source and destination must be different
@@ -204,6 +212,55 @@ public class MovementService {
         return null; // Valid
     }
     
+    // ==================== UC-MOV-003: Approve/Reject Internal Movement ====================
+    
+    /**
+     * Approve an internal movement request (Admin/Manager only)
+     * @param requestId Request ID
+     * @param approvedBy User ID who approved
+     * @return true if successful
+     */
+    public boolean approveRequest(Long requestId, Long approvedBy) {
+        if (requestId == null || approvedBy == null) {
+            return false;
+        }
+        
+        Request request = requestDAO.findById(requestId);
+        if (request == null || !"Internal".equals(request.getType())) {
+            return false;
+        }
+        
+        if (!"Created".equals(request.getStatus())) {
+            return false;
+        }
+        
+        return requestDAO.approve(requestId, approvedBy);
+    }
+    
+    /**
+     * Reject an internal movement request (Admin/Manager only)
+     * @param requestId Request ID
+     * @param rejectedBy User ID who rejected
+     * @param reason Rejection reason (required)
+     * @return true if successful
+     */
+    public boolean rejectRequest(Long requestId, Long rejectedBy, String reason) {
+        if (requestId == null || rejectedBy == null || reason == null || reason.trim().isEmpty()) {
+            return false;
+        }
+        
+        Request request = requestDAO.findById(requestId);
+        if (request == null || !"Internal".equals(request.getType())) {
+            return false;
+        }
+        
+        if (!"Created".equals(request.getStatus())) {
+            return false;
+        }
+        
+        return requestDAO.reject(requestId, rejectedBy, reason.trim());
+    }
+    
     // ==================== UC-MOV-002: Execute Internal Movement ====================
     
     /**
@@ -216,14 +273,13 @@ public class MovementService {
             return false;
         }
         
-        // Verify request exists and is Created/Approved
+        // Verify request exists and is Approved (approval required before execution)
         Request request = requestDAO.findById(requestId);
         if (request == null || !"Internal".equals(request.getType())) {
             return false;
         }
         
-        // Internal movements can start directly from Created status
-        if (!"Created".equals(request.getStatus()) && !"Approved".equals(request.getStatus())) {
+        if (!"Approved".equals(request.getStatus())) {
             return false;
         }
         
@@ -260,6 +316,15 @@ public class MovementService {
                     item.getProductId(), warehouseId, item.getSourceLocationId());
             if (sourceInventory == null || sourceInventory.getQuantity() < item.getQuantity()) {
                 return false; // Not enough inventory - reject before any changes
+            }
+            
+            // BR-MXE-005: Defensive re-validation of destination compatibility
+            Location destLoc = locationDAO.findById(item.getDestinationLocationId());
+            if (destLoc != null && destLoc.getCategoryId() != null) {
+                Product product = productDAO.findById(item.getProductId());
+                if (product == null || !destLoc.getCategoryId().equals(product.getCategoryId())) {
+                    return false; // Category changed since creation — block
+                }
             }
         }
         
