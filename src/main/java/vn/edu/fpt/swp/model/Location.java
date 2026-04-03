@@ -13,6 +13,7 @@ public class Location implements Serializable {
     private String code;
     private String type; // Storage / Picking / Staging
     private boolean isActive;
+    private Long categoryId; // NULL = no restriction (any product), non-NULL = restricted to this category
     
     // Default constructor
     public Location() {
@@ -68,6 +69,14 @@ public class Location implements Serializable {
         isActive = active;
     }
     
+    public Long getCategoryId() {
+        return categoryId;
+    }
+    
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+    
     @Override
     public String toString() {
         return "Location{" +
@@ -75,6 +84,7 @@ public class Location implements Serializable {
                 ", warehouseId=" + warehouseId +
                 ", code='" + code + '\'' +
                 ", type='" + type + '\'' +
+                ", categoryId=" + categoryId +
                 ", isActive=" + isActive +
                 '}';
     }
