@@ -61,7 +61,7 @@
                                     <i class="bx bx-arrow-back me-1"></i> Back to List
                                 </a>
                                 
-                                <c:if test="${order.status == 'Draft' && (currentUser.role == 'Admin' || currentUser.role == 'Sales')}">
+                                <c:if test="${order.status == 'Draft' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
                                     <form action="${contextPath}/sales-order" method="post" style="display: inline;">
                                         <input type="hidden" name="action" value="confirm">
                                         <input type="hidden" name="id" value="${order.id}">
@@ -71,13 +71,13 @@
                                     </form>
                                 </c:if>
                                 
-                                <c:if test="${order.status == 'Confirmed' && (currentUser.role == 'Admin' || currentUser.role == 'Sales')}">
+                                <c:if test="${order.status == 'Confirmed' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
                                     <a href="${contextPath}/sales-order?action=generate-outbound&id=${order.id}" class="btn btn-primary">
                                         <i class="bx bx-export me-1"></i> Generate Outbound
                                     </a>
                                 </c:if>
                                 
-                                <c:if test="${order.status != 'Completed' && order.status != 'Cancelled' && (currentUser.role == 'Admin' || currentUser.role == 'Sales')}">
+                                <c:if test="${order.status != 'Completed' && order.status != 'Cancelled' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
                                     <a href="${contextPath}/sales-order?action=cancel&id=${order.id}" class="btn btn-outline-danger">
                                         <i class="bx bx-x-circle me-1"></i> Cancel Order
                                     </a>

@@ -23,7 +23,6 @@ public class Request implements Serializable {
     private Long salesOrderId;
     private Long sourceWarehouseId; // For Transfer requests
     private Long destinationWarehouseId; // For Transfer requests
-    private Long providerId; // For Inbound requests
     private LocalDateTime expectedDate;
     private String notes;
     private String reason; // For Internal Outbound
@@ -153,14 +152,6 @@ public class Request implements Serializable {
 
     public void setDestinationWarehouseId(Long destinationWarehouseId) {
         this.destinationWarehouseId = destinationWarehouseId;
-    }
-
-    public Long getProviderId() {
-        return providerId;
-    }
-
-    public void setProviderId(Long providerId) {
-        this.providerId = providerId;
     }
 
     public LocalDateTime getExpectedDate() {

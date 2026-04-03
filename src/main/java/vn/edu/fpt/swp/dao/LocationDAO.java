@@ -28,7 +28,7 @@ public class LocationDAO {
             return null;
         }
         
-        String sql = "INSERT INTO Locations (WarehouseId, Code, Type, IsActive, CategoryId) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO Locations (WarehouseId, Code, Type, IsActive) VALUES (?, ?, ?, ?)";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -37,11 +37,6 @@ public class LocationDAO {
             stmt.setString(2, location.getCode().trim());
             stmt.setString(3, location.getType().trim());
             stmt.setBoolean(4, location.isActive());
-            if (location.getCategoryId() != null) {
-                stmt.setLong(5, location.getCategoryId());
-            } else {
-                stmt.setNull(5, java.sql.Types.BIGINT);
-            }
             
             int affectedRows = stmt.executeUpdate();
             
@@ -70,7 +65,7 @@ public class LocationDAO {
             return null;
         }
         
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations WHERE Id = ?";
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations WHERE Id = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -100,7 +95,7 @@ public class LocationDAO {
             return null;
         }
         
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations " +
                      "WHERE WarehouseId = ? AND Code = ?";
         
         try (Connection conn = DBConnection.getConnection();
@@ -127,7 +122,7 @@ public class LocationDAO {
      */
     public List<Location> getAll() {
         List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations ORDER BY WarehouseId, Code";
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations ORDER BY WarehouseId, Code";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -154,7 +149,7 @@ public class LocationDAO {
         }
         
         List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations " +
                      "WHERE WarehouseId = ? ORDER BY Code";
         
         try (Connection conn = DBConnection.getConnection();
@@ -185,7 +180,7 @@ public class LocationDAO {
         }
         
         List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations " +
                      "WHERE Type = ? ORDER BY WarehouseId, Code";
         
         try (Connection conn = DBConnection.getConnection();
@@ -212,7 +207,7 @@ public class LocationDAO {
      */
     public List<Location> findByStatus(boolean isActive) {
         List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations " +
                      "WHERE IsActive = ? ORDER BY WarehouseId, Code";
         
         try (Connection conn = DBConnection.getConnection();
@@ -243,7 +238,7 @@ public class LocationDAO {
         }
         
         List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations " +
                      "WHERE WarehouseId = ? AND IsActive = 1 ORDER BY Code";
         
         try (Connection conn = DBConnection.getConnection();
@@ -274,7 +269,7 @@ public class LocationDAO {
         }
         
         List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
+        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive FROM Locations " +
                      "WHERE Code LIKE ? ORDER BY WarehouseId, Code";
         
         try (Connection conn = DBConnection.getConnection();
@@ -307,7 +302,7 @@ public class LocationDAO {
             return false;
         }
         
-        String sql = "UPDATE Locations SET Code = ?, Type = ?, IsActive = ?, CategoryId = ? WHERE Id = ?";
+        String sql = "UPDATE Locations SET Code = ?, Type = ?, IsActive = ? WHERE Id = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -315,12 +310,7 @@ public class LocationDAO {
             stmt.setString(1, location.getCode().trim());
             stmt.setString(2, location.getType().trim());
             stmt.setBoolean(3, location.isActive());
-            if (location.getCategoryId() != null) {
-                stmt.setLong(4, location.getCategoryId());
-            } else {
-                stmt.setNull(4, java.sql.Types.BIGINT);
-            }
-            stmt.setLong(5, location.getId());
+            stmt.setLong(4, location.getId());
             
             int affectedRows = stmt.executeUpdate();
             return affectedRows > 0;
@@ -467,7 +457,7 @@ public class LocationDAO {
     }
 
     public PageResult<Location> searchPaginated(Long warehouseId, String type, Boolean isActive, String keyword,
-                                                Long categoryId, PageRequest pageRequest) {
+                                                PageRequest pageRequest) {
         List<Location> locations = new ArrayList<>();
         StringBuilder fromClause = new StringBuilder(" FROM Locations WHERE 1=1");
         List<Object> params = new ArrayList<>();
@@ -491,14 +481,9 @@ public class LocationDAO {
             fromClause.append(" AND Code LIKE ?");
             params.add("%" + keyword.trim() + "%");
         }
-        
-        if (categoryId != null && categoryId > 0) {
-            fromClause.append(" AND CategoryId = ?");
-            params.add(categoryId);
-        }
 
         String countSql = "SELECT COUNT(*)" + fromClause;
-        String dataSql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId" + fromClause
+        String dataSql = "SELECT Id, WarehouseId, Code, Type, IsActive" + fromClause
             + " ORDER BY WarehouseId, Code OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
         long totalItems = 0L;
@@ -546,89 +531,6 @@ public class LocationDAO {
         location.setCode(rs.getString("Code"));
         location.setType(rs.getString("Type"));
         location.setActive(rs.getBoolean("IsActive"));
-        
-        long catId = rs.getLong("CategoryId");
-        location.setCategoryId(rs.wasNull() ? null : catId);
-        
         return location;
-    }
-    
-    /**
-     * Find active locations compatible with a given category in a warehouse.
-     * Returns locations where CategoryId IS NULL (unrestricted) OR CategoryId = given categoryId.
-     */
-    public List<Location> findActiveByWarehouseAndCategory(Long warehouseId, Long categoryId) {
-        if (warehouseId == null || warehouseId <= 0) {
-            return new ArrayList<>();
-        }
-        
-        List<Location> locations = new ArrayList<>();
-        String sql = "SELECT Id, WarehouseId, Code, Type, IsActive, CategoryId FROM Locations " +
-                     "WHERE WarehouseId = ? AND IsActive = 1 AND (CategoryId IS NULL OR CategoryId = ?) " +
-                     "ORDER BY Code";
-        
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
-            stmt.setLong(1, warehouseId);
-            if (categoryId != null) {
-                stmt.setLong(2, categoryId);
-            } else {
-                stmt.setNull(2, java.sql.Types.BIGINT);
-            }
-            
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    locations.add(mapResultSetToLocation(rs));
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        
-        return locations;
-    }
-
-    /**
-     * Count locations that reference a specific category (for delete-guard).
-     */
-    public int countByCategoryId(Long categoryId) {
-        if (categoryId == null || categoryId <= 0) return 0;
-        
-        String sql = "SELECT COUNT(*) FROM Locations WHERE CategoryId = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setLong(1, categoryId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
-
-    /**
-     * Check if location has any inventory from a DIFFERENT category than the given one.
-     * Used by BR-LOC-012: block category change if conflicting inventory exists.
-     */
-    public boolean hasInventoryFromDifferentCategory(Long locationId, Long newCategoryId) {
-        if (locationId == null || locationId <= 0) return false;
-        if (newCategoryId == null) return false; // Setting to NULL (unrestricted) is always safe
-        
-        String sql = "SELECT COUNT(*) FROM Inventory i " +
-                     "INNER JOIN Products p ON i.ProductId = p.Id " +
-                     "WHERE i.LocationId = ? AND i.Quantity > 0 AND p.CategoryId != ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setLong(1, locationId);
-            stmt.setLong(2, newCategoryId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) return rs.getInt(1) > 0;
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false;
     }
 }

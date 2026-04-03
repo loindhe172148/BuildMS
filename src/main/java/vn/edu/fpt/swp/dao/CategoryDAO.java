@@ -325,22 +325,4 @@ public class CategoryDAO {
         category.setDescription(rs.getString("description"));
         return category;
     }
-    
-    /**
-     * Count locations that reference this category (for BR-CAT-006 delete guard).
-     */
-    public int countLocations(Long categoryId) {
-        if (categoryId == null || categoryId <= 0) return 0;
-        String sql = "SELECT COUNT(*) FROM Locations WHERE CategoryId = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setLong(1, categoryId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
 }

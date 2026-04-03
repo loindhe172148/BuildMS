@@ -88,8 +88,8 @@ public class LocationService {
     }
 
     public PageResult<Location> searchLocationsPaginated(Long warehouseId, String type, Boolean isActive,
-                                                         String keyword, Long categoryId, PageRequest pageRequest) {
-        return locationDAO.searchPaginated(warehouseId, type, isActive, keyword, categoryId, pageRequest);
+                                                         String keyword, PageRequest pageRequest) {
+        return locationDAO.searchPaginated(warehouseId, type, isActive, keyword, pageRequest);
     }
     
     /**
@@ -99,7 +99,7 @@ public class LocationService {
      * @param type Location type (Storage, Picking, Staging)
      * @return Created location with generated ID, null if failed
      */
-    public Location createLocation(Long warehouseId, String code, String type, Long categoryId) {
+    public Location createLocation(Long warehouseId, String code, String type) {
         // Validate input
         if (warehouseId == null || warehouseId <= 0 ||
             code == null || code.trim().isEmpty() ||
@@ -120,7 +120,6 @@ public class LocationService {
         // Create location
         Location location = new Location(warehouseId, code.trim(), type.trim());
         location.setActive(true); // New locations are active by default
-        location.setCategoryId(categoryId);
         return locationDAO.create(location);
     }
     
@@ -131,7 +130,7 @@ public class LocationService {
      * @param type New type
      * @return true if update successful, false otherwise
      */
-    public boolean updateLocation(Long id, String code, String type, Long categoryId) {
+    public boolean updateLocation(Long id, String code, String type) {
         // Validate input
         if (id == null || id <= 0 ||
             code == null || code.trim().isEmpty() ||
@@ -158,18 +157,10 @@ public class LocationService {
             }
         }
         
-        // BR-LOC-012: Block category change if location has inventory from different category
-        if (categoryId != null && !categoryId.equals(existing.getCategoryId())) {
-            if (locationDAO.hasInventoryFromDifferentCategory(id, categoryId)) {
-                return false; // Conflict: location has inventory from another category
-            }
-        }
-        
         // Update location (preserve warehouseId and status)
         Location location = new Location(existing.getWarehouseId(), code.trim(), type.trim());
         location.setId(id);
         location.setActive(existing.isActive());
-        location.setCategoryId(categoryId);
         return locationDAO.update(location);
     }
     
@@ -278,23 +269,5 @@ public class LocationService {
         return "Storage".equalsIgnoreCase(t) || 
                "Picking".equalsIgnoreCase(t) || 
                "Staging".equalsIgnoreCase(t);
-    }
-
-    /**
-     * Get active locations in a warehouse that are compatible with a product's category.
-     * Returns locations where CategoryId IS NULL OR CategoryId = product's categoryId.
-     */
-    public List<Location> getCompatibleLocations(Long warehouseId, Long productCategoryId) {
-        return locationDAO.findActiveByWarehouseAndCategory(warehouseId, productCategoryId);
-    }
-
-    /**
-     * Check if a location accepts a product of the given category.
-     */
-    public boolean isLocationCompatibleWithCategory(Long locationId, Long productCategoryId) {
-        Location location = locationDAO.findById(locationId);
-        if (location == null) return false;
-        if (location.getCategoryId() == null) return true; // Unrestricted
-        return location.getCategoryId().equals(productCategoryId);
     }
 }

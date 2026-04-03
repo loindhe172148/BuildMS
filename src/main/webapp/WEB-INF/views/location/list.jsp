@@ -123,18 +123,6 @@
                                         </select>
                                     </div>
                                     
-                                    <!-- Filter by Category -->
-                                    <div class="col-md-2">
-                                        <select class="form-select" name="categoryId">
-                                            <option value="">All Categories</option>
-                                            <c:forEach var="cat" items="${categories}">
-                                                <option value="<c:out value='${cat.id}'/>" <c:out value="${categoryId == cat.id ? 'selected' : ''}"/>>
-                                                    <c:out value="${cat.name}"/>
-                                                </option>
-                                            </c:forEach>
-                                        </select>
-                                    </div>
-                                    
                                     <!-- Filter by Status -->
                                     <div class="col-md-2">
                                         <select class="form-select" name="status">
@@ -167,7 +155,6 @@
                                             <th>Code</th>
                                             <th>Warehouse</th>
                                             <th>Type</th>
-                                            <th style="width: 150px;">Restriction</th>
                                             <th style="width: 120px;">Inventory</th>
                                             <th style="width: 100px;">Status</th>
                                             <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager'}">
@@ -179,7 +166,7 @@
                                         <c:choose>
                                             <c:when test="${empty locations}">
                                                 <tr>
-                                                    <td colspan="${(currentUser.role == 'Admin' || currentUser.role == 'Manager') ? 8 : 7}" 
+                                                    <td colspan="${(currentUser.role == 'Admin' || currentUser.role == 'Manager') ? 7 : 6}" 
                                                         class="text-center py-5">
                                                         <div class="text-muted">
                                                             <i class="bx bx-map bx-lg mb-3 d-block"></i>
@@ -227,18 +214,6 @@
                                                                 </c:when>
                                                                 <c:otherwise>
                                                                     <span class="badge bg-label-secondary"><c:out value="${location.type}"/></span>
-                                                                </c:otherwise>
-                                                            </c:choose>
-                                                        </td>
-                                                        <td>
-                                                            <c:choose>
-                                                                <c:when test="${location.categoryId != null}">
-                                                                    <span class="badge bg-label-dark" title="Restricted to category">
-                                                                        <i class="bx bx-lock-alt me-1"></i><c:out value="${categoryMap[location.categoryId]}"/>
-                                                                    </span>
-                                                                </c:when>
-                                                                <c:otherwise>
-                                                                    <span class="text-muted"><i class="bx bx-globe me-1"></i>None</span>
                                                                 </c:otherwise>
                                                             </c:choose>
                                                         </td>

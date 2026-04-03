@@ -216,9 +216,7 @@
                                                                     <select name="locationId[]" class="form-select form-select-sm" required>
                                                                         <option value="">Select Location</option>
                                                                         <c:forEach var="loc" items="${locations}">
-                                                                            <c:if test="${loc.categoryId == null || loc.categoryId == data.product.categoryId}">
-                                                                                <option value="<c:out value='${loc.id}'/>"><c:out value="${loc.code}"/> (<c:out value="${loc.type}"/>)</option>
-                                                                            </c:if>
+                                                                            <option value="<c:out value='${loc.id}'/>"><c:out value="${loc.code}"/> (<c:out value="${loc.type}"/>)</option>
                                                                         </c:forEach>
                                                                     </select>
                                                                 </td>

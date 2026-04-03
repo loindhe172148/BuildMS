@@ -26,8 +26,8 @@ public class RequestDAO {
         }
         
         String sql = "INSERT INTO Requests (Type, Status, CreatedBy, SalesOrderId, SourceWarehouseId, " +
-                     "DestinationWarehouseId, ProviderId, ExpectedDate, Notes, Reason, CreatedAt) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
+                     "DestinationWarehouseId, ExpectedDate, Notes, Reason, CreatedAt) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE())";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -54,20 +54,14 @@ public class RequestDAO {
                 stmt.setNull(6, Types.BIGINT);
             }
             
-            if (request.getProviderId() != null) {
-                stmt.setLong(7, request.getProviderId());
-            } else {
-                stmt.setNull(7, Types.BIGINT);
-            }
-            
             if (request.getExpectedDate() != null) {
-                stmt.setTimestamp(8, Timestamp.valueOf(request.getExpectedDate()));
+                stmt.setTimestamp(7, Timestamp.valueOf(request.getExpectedDate()));
             } else {
-                stmt.setNull(8, Types.TIMESTAMP);
+                stmt.setNull(7, Types.TIMESTAMP);
             }
             
-            stmt.setString(9, request.getNotes());
-            stmt.setString(10, request.getReason());
+            stmt.setString(8, request.getNotes());
+            stmt.setString(9, request.getReason());
             
             int affectedRows = stmt.executeUpdate();
             
@@ -98,7 +92,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE Id = ?";
         
         try (Connection conn = DBConnection.getConnection();
@@ -132,7 +126,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE Type = ? ORDER BY CreatedAt DESC";
         
         try (Connection conn = DBConnection.getConnection();
@@ -167,7 +161,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE Type = ? AND Status = ? " +
                      "ORDER BY CreatedAt DESC";
         
@@ -203,7 +197,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests " +
                      "WHERE SourceWarehouseId = ? OR DestinationWarehouseId = ? " +
                      "ORDER BY CreatedAt DESC";
@@ -239,7 +233,7 @@ public class RequestDAO {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, ");
         sql.append("RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, ");
-        sql.append("SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, ");
+        sql.append("SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, ");
         sql.append("Notes, Reason, CreatedAt FROM Requests WHERE 1=1 ");
         
         List<Object> params = new ArrayList<>();
@@ -319,7 +313,7 @@ public class RequestDAO {
         String countSql = "SELECT COUNT(*)" + fromClause;
         String dataSql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
             "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
             "Notes, Reason, CreatedAt" + fromClause +
             "ORDER BY CreatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
@@ -383,7 +377,7 @@ public class RequestDAO {
         String countSql = "SELECT COUNT(*)" + fromClause;
         String dataSql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
             "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+            "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
             "Notes, Reason, CreatedAt" + fromClause +
             "ORDER BY CreatedAt DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
@@ -652,7 +646,7 @@ public class RequestDAO {
         
         String sql = "SELECT Id, Type, Status, CreatedBy, ApprovedBy, ApprovedDate, " +
                      "RejectedBy, RejectedDate, RejectionReason, CompletedBy, CompletedDate, " +
-                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ProviderId, ExpectedDate, " +
+                     "SalesOrderId, SourceWarehouseId, DestinationWarehouseId, ExpectedDate, " +
                      "Notes, Reason, CreatedAt FROM Requests WHERE SalesOrderId = ? " +
                      "ORDER BY CreatedAt DESC";
         
@@ -751,11 +745,6 @@ public class RequestDAO {
         long destinationWarehouseId = rs.getLong("DestinationWarehouseId");
         if (!rs.wasNull()) {
             request.setDestinationWarehouseId(destinationWarehouseId);
-        }
-        
-        long providerId = rs.getLong("ProviderId");
-        if (!rs.wasNull()) {
-            request.setProviderId(providerId);
         }
         
         Timestamp expectedDate = rs.getTimestamp("ExpectedDate");

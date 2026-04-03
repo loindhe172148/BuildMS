@@ -87,9 +87,7 @@
                                     <div class="col-md-4">
                                         <select class="form-select" name="status">
                                             <option value="">All Status</option>
-                                            <option value="Created" <c:out value="${selectedStatus == 'Created' ? 'selected' : ''}"/>><i class="bx bx-time"></i> Created</option>
-                                            <option value="Approved" <c:out value="${selectedStatus == 'Approved' ? 'selected' : ''}"/>>Approved</option>
-                                            <option value="Rejected" <c:out value="${selectedStatus == 'Rejected' ? 'selected' : ''}"/>>Rejected</option>
+                                            <option value="Created" <c:out value="${selectedStatus == 'Created' ? 'selected' : ''}"/>>Created</option>
                                             <option value="InProgress" <c:out value="${selectedStatus == 'InProgress' ? 'selected' : ''}"/>>In Progress</option>
                                             <option value="Completed" <c:out value="${selectedStatus == 'Completed' ? 'selected' : ''}"/>>Completed</option>
                                         </select>
@@ -168,12 +166,6 @@
                                                                 <c:when test="${req.status == 'Created'}">
                                                                     <span class="badge bg-warning">Created</span>
                                                                 </c:when>
-                                                                <c:when test="${req.status == 'Approved'}">
-                                                                    <span class="badge bg-success">Approved</span>
-                                                                </c:when>
-                                                                <c:when test="${req.status == 'Rejected'}">
-                                                                    <span class="badge bg-danger">Rejected</span>
-                                                                </c:when>
                                                                 <c:when test="${req.status == 'InProgress'}">
                                                                     <span class="badge bg-info">In Progress</span>
                                                                 </c:when>
@@ -190,15 +182,9 @@
                                                                class="btn btn-sm btn-outline-primary" title="View Details">
                                                                 <i class="bx bx-show" aria-hidden="true"></i>
                                                             </a>
-                                                            <c:if test="${(currentUser.role == 'Admin' || currentUser.role == 'Manager') && req.status == 'Created'}">
-                                                                <a href="${contextPath}/movement?action=approve&id=${req.id}" 
-                                                                   class="btn btn-sm btn-outline-success" title="Approve">
-                                                                    <i class="bx bx-check"></i>
-                                                                </a>
-                                                            </c:if>
-                                                            <c:if test="${req.status == 'Approved' || req.status == 'InProgress'}">
+                                                            <c:if test="${req.status == 'Created' || req.status == 'InProgress'}">
                                                                 <a href="${contextPath}/movement?action=execute&id=${req.id}" 
-                                                                   class="btn btn-sm btn-outline-info" title="Execute">
+                                                                   class="btn btn-sm btn-outline-success" title="Execute">
                                                                     <i class="bx bx-play"></i>
                                                                 </a>
                                                             </c:if>

@@ -149,27 +149,6 @@
                                                 </div>
                                             </div>
                                             
-                                            <!-- Category Restriction -->
-                                            <div class="mb-4">
-                                                <label for="categoryId" class="form-label">
-                                                    Category Restriction <span class="text-muted">(Optional)</span>
-                                                </label>
-                                                <c:set var="currentCategoryId" value="${categoryId != null ? categoryId : location.categoryId}" />
-                                                <select class="form-select" id="categoryId" name="categoryId">
-                                                    <option value="">No Restriction (All Categories Allowed)</option>
-                                                    <c:forEach var="cat" items="${categories}">
-                                                        <option value="<c:out value='${cat.id}'/>" 
-                                                                <c:out value="${currentCategoryId == cat.id ? 'selected' : ''}"/>>
-                                                            <c:out value="${cat.name}"/>
-                                                        </option>
-                                                    </c:forEach>
-                                                </select>
-                                                <div class="form-text">
-                                                    <i class="bx bx-info-circle me-1"></i>
-                                                    If selected, this location can ONLY store products from the specified category.
-                                                </div>
-                                            </div>
-                                            
                                             <!-- Form Actions -->
                                             <div class="d-flex gap-3 pt-3">
                                                 <button type="submit" class="btn btn-primary">

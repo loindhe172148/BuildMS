@@ -98,8 +98,8 @@
                                     <div class="col-md-3">
                                         <p class="text-muted mb-0">Status</p>
                                         <c:choose>
-                                            <c:when test="${movementRequest.status == 'Approved'}">
-                                                <span class="badge bg-success fs-6">Approved</span>
+                                            <c:when test="${movementRequest.status == 'Created'}">
+                                                <span class="badge bg-warning fs-6">Created</span>
                                             </c:when>
                                             <c:when test="${movementRequest.status == 'InProgress'}">
                                                 <span class="badge bg-info fs-6">In Progress</span>
@@ -111,7 +111,7 @@
                                     </div>
                                     <div class="col-md-5 text-md-end">
                                         <c:choose>
-                                            <c:when test="${movementRequest.status == 'Approved'}">
+                                            <c:when test="${movementRequest.status == 'Created'}">
                                                 <form action="${contextPath}/movement" method="post" class="d-inline">
                                                     <input type="hidden" name="action" value="start" />
                                                     <input type="hidden" name="id" value="${movementRequest.id}" />
