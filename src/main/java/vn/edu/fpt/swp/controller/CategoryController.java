@@ -88,7 +88,7 @@ public class CategoryController extends HttpServlet {
                 break;
         }
     }
-    
+    //check role
     /**
      * Check if current user has admin/manager role
      */
