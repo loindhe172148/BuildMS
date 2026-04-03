@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
  * 
  * UC-MOV-001: Create Internal Movement Request
  * UC-MOV-002: Execute Internal Movement
+ * UC-MOV-003: Approve Internal Movement Request
  */
 @WebServlet("/movement")
 public class MovementController extends HttpServlet {
@@ -55,6 +56,9 @@ public class MovementController extends HttpServlet {
             case "details":
                 showDetails(request, response);
                 break;
+            case "approve":
+                showApprovalForm(request, response);
+                break;
             case "execute":
                 showExecutionForm(request, response);
                 break;
@@ -77,6 +81,12 @@ public class MovementController extends HttpServlet {
         switch (action) {
             case "create":
                 createRequest(request, response);
+                break;
+            case "approve":
+                approveRequest(request, response);
+                break;
+            case "reject":
+                rejectRequest(request, response);
                 break;
             case "start":
                 startExecution(request, response);
@@ -102,6 +112,20 @@ public class MovementController extends HttpServlet {
         
         String role = user.getRole();
         return "Admin".equals(role) || "Manager".equals(role) || "Staff".equals(role);
+    }
+    
+    /**
+     * Check if user can approve/reject movement requests (Admin or Manager only)
+     */
+    private boolean hasManageAccess(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return false;
+        
+        User user = (User) session.getAttribute("user");
+        if (user == null) return false;
+        
+        String role = user.getRole();
+        return "Admin".equals(role) || "Manager".equals(role);
     }
     
     /**
@@ -432,14 +456,143 @@ public class MovementController extends HttpServlet {
         User createdBy = movementService.getUserById(movementRequest.getCreatedBy());
         User completedBy = movementRequest.getCompletedBy() != null ? 
                 movementService.getUserById(movementRequest.getCompletedBy()) : null;
+        User approvedByUser = movementRequest.getApprovedBy() != null ?
+                movementService.getUserById(movementRequest.getApprovedBy()) : null;
+        User rejectedByUser = movementRequest.getRejectedBy() != null ?
+                movementService.getUserById(movementRequest.getRejectedBy()) : null;
         
         request.setAttribute("movementRequest", movementRequest);
         request.setAttribute("itemsWithDetails", itemsWithDetails);
         request.setAttribute("warehouse", warehouse);
         request.setAttribute("createdByUser", createdBy);
         request.setAttribute("completedByUser", completedBy);
+        request.setAttribute("approvedByUser", approvedByUser);
+        request.setAttribute("rejectedByUser", rejectedByUser);
         
         request.getRequestDispatcher("/WEB-INF/views/movement/details.jsp").forward(request, response);
+    }
+    
+    /**
+     * UC-MOV-003: Show approval form (same as details page with approve/reject buttons)
+     */
+    private void showApprovalForm(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        if (!hasManageAccess(request)) {
+            request.getSession().setAttribute("errorMessage", "You don't have permission to approve movement requests.");
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        showDetails(request, response);
+    }
+    
+    /**
+     * UC-MOV-003: Process approval
+     */
+    private void approveRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        if (!hasManageAccess(request)) {
+            request.getSession().setAttribute("errorMessage", "You don't have permission to approve movement requests.");
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        String idStr = request.getParameter("id");
+        if (idStr == null || idStr.trim().isEmpty()) {
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        Long requestId;
+        try {
+            requestId = Long.parseLong(idStr.trim());
+        } catch (NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        // Manager can only approve movements for their assigned warehouse
+        if (isWarehouseScoped(request)) {
+            Request movReq = movementService.getRequestById(requestId);
+            Long assignedWarehouseId = getAssignedWarehouseId(request);
+            if (movReq == null || assignedWarehouseId == null
+                    || !assignedWarehouseId.equals(movReq.getSourceWarehouseId())) {
+                request.getSession().setAttribute("errorMessage", "You don't have permission to approve this movement request.");
+                response.sendRedirect(request.getContextPath() + "/movement");
+                return;
+            }
+        }
+        
+        Long userId = getCurrentUserId(request);
+        boolean approved = movementService.approveRequest(requestId, userId);
+        
+        if (approved) {
+            request.getSession().setAttribute("successMessage", "Movement Request #" + requestId + " has been approved.");
+        } else {
+            request.getSession().setAttribute("errorMessage", "Failed to approve request. It may have already been processed.");
+        }
+        
+        response.sendRedirect(request.getContextPath() + "/movement?action=details&id=" + requestId);
+    }
+    
+    /**
+     * UC-MOV-003: Process rejection
+     */
+    private void rejectRequest(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        if (!hasManageAccess(request)) {
+            request.getSession().setAttribute("errorMessage", "You don't have permission to reject movement requests.");
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        String idStr = request.getParameter("id");
+        String reason = request.getParameter("reason");
+        
+        if (idStr == null || idStr.trim().isEmpty()) {
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        if (reason == null || reason.trim().isEmpty()) {
+            request.getSession().setAttribute("errorMessage", "Rejection reason is required.");
+            response.sendRedirect(request.getContextPath() + "/movement?action=details&id=" + idStr);
+            return;
+        }
+        
+        Long requestId;
+        try {
+            requestId = Long.parseLong(idStr.trim());
+        } catch (NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/movement");
+            return;
+        }
+        
+        // Manager can only reject movements for their assigned warehouse
+        if (isWarehouseScoped(request)) {
+            Request movReq = movementService.getRequestById(requestId);
+            Long assignedWarehouseId = getAssignedWarehouseId(request);
+            if (movReq == null || assignedWarehouseId == null
+                    || !assignedWarehouseId.equals(movReq.getSourceWarehouseId())) {
+                request.getSession().setAttribute("errorMessage", "You don't have permission to reject this movement request.");
+                response.sendRedirect(request.getContextPath() + "/movement");
+                return;
+            }
+        }
+        
+        Long userId = getCurrentUserId(request);
+        boolean rejected = movementService.rejectRequest(requestId, userId, reason.trim());
+        
+        if (rejected) {
+            request.getSession().setAttribute("successMessage", "Movement Request #" + requestId + " has been rejected.");
+        } else {
+            request.getSession().setAttribute("errorMessage", "Failed to reject request. It may have already been processed.");
+        }
+        
+        response.sendRedirect(request.getContextPath() + "/movement?action=details&id=" + requestId);
     }
     
     /**
@@ -475,11 +628,12 @@ public class MovementController extends HttpServlet {
             return;
         }
         
-        // Verify request is ready for execution
+        // Verify request is ready for execution (must be Approved first)
         String status = movementRequest.getStatus();
-        if (!"Created".equals(status) && !"Approved".equals(status) && !"InProgress".equals(status)) {
+        if (!"Approved".equals(status) && !"InProgress".equals(status)) {
             request.getSession().setAttribute("errorMessage", 
-                    "This request cannot be executed. Current status: " + status);
+                    "This request cannot be executed. Current status: " + status +
+                    ". Only Approved requests can be executed.");
             response.sendRedirect(request.getContextPath() + "/movement?action=details&id=" + requestId);
             return;
         }
