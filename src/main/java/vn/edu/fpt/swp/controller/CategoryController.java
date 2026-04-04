@@ -100,7 +100,7 @@ public class CategoryController extends HttpServlet {
         if (user == null) return false;
         
         String role = user.getRole();
-        return "Admin".equals(role) || "Manager".equals(role);
+        return "Admin".equals(role) || "Manager".equals(role) || "Admin".equals(role);
     }
     
     /**
