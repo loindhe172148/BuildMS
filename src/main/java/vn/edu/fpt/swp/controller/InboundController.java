@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import vn.edu.fpt.swp.model.*;
 import vn.edu.fpt.swp.service.InboundService;
+import vn.edu.fpt.swp.service.ProviderService;
 import vn.edu.fpt.swp.util.PageRequest;
 import vn.edu.fpt.swp.util.PageResult;
 import vn.edu.fpt.swp.util.PaginationUtil;
@@ -31,10 +32,12 @@ public class InboundController extends HttpServlet {
     private static final long serialVersionUID = 1L;
     
     private InboundService inboundService;
+    private ProviderService providerService;
     
     @Override
     public void init() throws ServletException {
         inboundService = new InboundService();
+        providerService = new ProviderService();
     }
     
     @Override
@@ -253,6 +256,7 @@ public class InboundController extends HttpServlet {
         
         List<Warehouse> warehouses = inboundService.getAllWarehouses();
         List<Product> products = inboundService.getActiveProducts();
+        List<Provider> providers = providerService.getActiveProviders();
         
         if (warehouses.isEmpty()) {
             request.getSession().setAttribute("warningMessage", "Please create a warehouse first.");
@@ -280,6 +284,7 @@ public class InboundController extends HttpServlet {
         
         request.setAttribute("warehouses", warehouses);
         request.setAttribute("products", products);
+        request.setAttribute("providers", providers);
         
         request.getRequestDispatcher("/WEB-INF/views/inbound/create.jsp").forward(request, response);
     }
@@ -305,6 +310,7 @@ public class InboundController extends HttpServlet {
         try {
             // Get request data
             String warehouseIdStr = request.getParameter("warehouseId");
+            String providerIdStr = request.getParameter("providerId");
             String expectedDateStr = request.getParameter("expectedDate");
             String notes = request.getParameter("notes");
             String[] productIds = request.getParameterValues("productId");
@@ -341,6 +347,10 @@ public class InboundController extends HttpServlet {
             Request inboundRequest = new Request("Inbound", userId);
             inboundRequest.setDestinationWarehouseId(warehouseId);
             inboundRequest.setNotes(notes);
+            
+            if (providerIdStr != null && !providerIdStr.trim().isEmpty()) {
+                inboundRequest.setProviderId(Long.parseLong(providerIdStr.trim()));
+            }
             
             if (expectedDateStr != null && !expectedDateStr.trim().isEmpty()) {
                 inboundRequest.setExpectedDate(LocalDateTime.parse(expectedDateStr + "T00:00:00"));
@@ -436,6 +446,11 @@ public class InboundController extends HttpServlet {
             if (inboundRequest.getDestinationWarehouseId() != null) {
                 Warehouse wh = inboundService.getWarehouseById(inboundRequest.getDestinationWarehouseId());
                 request.setAttribute("warehouse", wh);
+            }
+            
+            if (inboundRequest.getProviderId() != null) {
+                Provider provider = providerService.getProviderById(inboundRequest.getProviderId());
+                request.setAttribute("provider", provider);
             }
             
             if (inboundRequest.getCreatedBy() != null) {
@@ -674,6 +689,7 @@ public class InboundController extends HttpServlet {
                     request.setAttribute("productName_" + item.getProductId(), product.getName());
                     request.setAttribute("productSku_" + item.getProductId(), product.getSku());
                     request.setAttribute("productUnit_" + item.getProductId(), product.getUnit());
+                    request.setAttribute("productCategory_" + item.getProductId(), product.getCategoryId());
                 }
                 if (item.getLocationId() != null) {
                     Location location = inboundService.getLocationById(item.getLocationId());

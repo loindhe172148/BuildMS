@@ -363,27 +363,13 @@ public class SalesOrderService {
             return false;
         }
         
-        // Check for active outbound requests
-        boolean hasActiveRequests = salesOrderDAO.hasActiveRequests(orderId);
-        if (hasActiveRequests) {
-            // Cancel related Created requests
-            cancelCreatedRequestsForOrder(orderId);
+        // Check for any generated outbound requests
+        List<Request> requests = requestDAO.findBySalesOrderId(orderId);
+        if (!requests.isEmpty()) {
+            return false;
         }
         
         return salesOrderDAO.cancel(orderId, cancelledBy, reason);
-    }
-    
-    /**
-     * Cancel all Created status outbound requests for a sales order
-     * @param salesOrderId Sales order ID
-     */
-    private void cancelCreatedRequestsForOrder(Long salesOrderId) {
-        List<Request> requests = requestDAO.findBySalesOrderId(salesOrderId);
-        for (Request request : requests) {
-            if ("Created".equals(request.getStatus())) {
-                requestDAO.reject(request.getId(), request.getCreatedBy(), "Sales order cancelled");
-            }
-        }
     }
     
     /**
@@ -413,32 +399,17 @@ public class SalesOrderService {
             return result;
         }
         
+        // Check for generated outbound requests
+        List<Request> requests = requestDAO.findBySalesOrderId(orderId);
+        if (!requests.isEmpty()) {
+            result.put("canCancel", false);
+            result.put("reason", "Sales orders with generated outbound requests cannot be cancelled");
+            return result;
+        }
+        
         result.put("canCancel", true);
         
-        // Check for warnings
         List<String> warnings = new ArrayList<>();
-        List<Request> requests = requestDAO.findBySalesOrderId(orderId);
-        
-        int createdCount = 0;
-        int activeCount = 0;
-        
-        for (Request request : requests) {
-            if ("Created".equals(request.getStatus())) {
-                createdCount++;
-            } else if (!"Completed".equals(request.getStatus()) && !"Rejected".equals(request.getStatus())) {
-                activeCount++;
-            }
-        }
-        
-        if (createdCount > 0) {
-            warnings.add(createdCount + " pending outbound request(s) will be auto-cancelled");
-        }
-        
-        if (activeCount > 0) {
-            warnings.add(activeCount + " active outbound request(s) need manual handling");
-            result.put("requiresConfirmation", true);
-        }
-        
         result.put("warnings", warnings);
         
         return result;

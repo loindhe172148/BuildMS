@@ -610,7 +610,7 @@ public class OutboundController extends HttpServlet {
     }
     
     /**
-     * UC-OUT-002: Show execution form
+     * UC-OUT-002: Show execution form (Approved requests only — execution is instant)
      */
     private void showExecutionForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -637,8 +637,8 @@ public class OutboundController extends HttpServlet {
                 return;
             }
             
-            // Can only execute Approved or InProgress requests
-            if (!"Approved".equals(outboundRequest.getStatus()) && !"InProgress".equals(outboundRequest.getStatus())) {
+            // Can only execute Approved requests (execution is now instant)
+            if (!"Approved".equals(outboundRequest.getStatus())) {
                 request.getSession().setAttribute("errorMessage", "Only approved requests can be executed.");
                 response.sendRedirect(request.getContextPath() + "/outbound?action=details&id=" + requestId);
                 return;
@@ -664,7 +664,8 @@ public class OutboundController extends HttpServlet {
                 request.setAttribute("warehouse", wh);
             }
             
-            // Get product info and inventory for items
+            // Check availability for each item and build summary
+            boolean allItemsAvailable = true;
             for (RequestItem item : items) {
                 Product product = outboundService.getProductById(item.getProductId());
                 if (product != null) {
@@ -675,11 +676,15 @@ public class OutboundController extends HttpServlet {
                 if (warehouseId != null) {
                     int available = outboundService.getInventoryQuantity(item.getProductId(), warehouseId);
                     request.setAttribute("available_" + item.getProductId(), available);
+                    if (available < item.getQuantity()) {
+                        allItemsAvailable = false;
+                    }
                 }
             }
             
             request.setAttribute("outboundRequest", outboundRequest);
             request.setAttribute("items", items);
+            request.setAttribute("allItemsAvailable", allItemsAvailable);
             
             request.getRequestDispatcher("/WEB-INF/views/outbound/execute.jsp").forward(request, response);
             
@@ -690,7 +695,7 @@ public class OutboundController extends HttpServlet {
     }
     
     /**
-     * UC-OUT-002: Start execution
+     * UC-OUT-002: Auto-execute outbound (validate inventory + auto-pick + complete)
      */
     private void startExecution(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -709,16 +714,18 @@ public class OutboundController extends HttpServlet {
         
         try {
             Long requestId = Long.parseLong(idStr.trim());
+            Long userId = getCurrentUserId(request);
             
-            boolean started = outboundService.startExecution(requestId);
+            String error = outboundService.autoExecute(requestId, userId);
             
-            if (started) {
-                request.getSession().setAttribute("successMessage", "Picking started for Request #" + requestId);
+            if (error == null) {
+                request.getSession().setAttribute("successMessage", 
+                    "Outbound Request #" + requestId + " executed successfully. Inventory has been updated.");
+                response.sendRedirect(request.getContextPath() + "/outbound?action=details&id=" + requestId);
             } else {
-                request.getSession().setAttribute("errorMessage", "Failed to start execution. Request may not be in Approved status.");
+                request.getSession().setAttribute("errorMessage", error);
+                response.sendRedirect(request.getContextPath() + "/outbound?action=execute&id=" + requestId);
             }
-            
-            response.sendRedirect(request.getContextPath() + "/outbound?action=execute&id=" + requestId);
             
         } catch (NumberFormatException e) {
             request.getSession().setAttribute("errorMessage", "Invalid request ID.");

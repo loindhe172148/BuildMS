@@ -132,7 +132,14 @@ public class TransferController extends HttpServlet {
 
         PageRequest pageRequest = PaginationUtil.resolvePageRequest(request);
         PageResult<Request> transferPage = transferService.getTransferRequestsPaginated(selectedStatus, warehouseFilter, pageRequest);
-        List<Request> transfers = transferPage.getItems();
+        List<Request> transfers = new ArrayList<>(transferPage.getItems());
+        // Enhancement: hide 'Created' transfers from source-warehouse users who did not create them.
+        // Destination-warehouse users always see 'Created' transfers so they can approve.
+        if (!"Admin".equals(currentUser.getRole()) && currentUser.getWarehouseId() != null) {
+            transfers.removeIf(t -> "Created".equals(t.getStatus())
+                    && currentUser.getWarehouseId().equals(t.getSourceWarehouseId())
+                    && !currentUser.getId().equals(t.getCreatedBy()));
+        }
         
         // Build lookup maps once — avoids N+1 DB calls per transfer
         java.util.Map<Long, Warehouse> warehouseMap = new java.util.HashMap<>();
@@ -268,25 +275,19 @@ public class TransferController extends HttpServlet {
             // Parse items
             String[] productIds = request.getParameterValues("productId[]");
             String[] quantities = request.getParameterValues("quantity[]");
-            String[] sourceLocationIds = request.getParameterValues("sourceLocationId[]");
-
+            
             if (productIds == null || productIds.length == 0) {
                 request.setAttribute("errorMessage", "At least one item is required");
                 showCreateForm(request, response);
                 return;
             }
-
+            
             List<RequestItem> items = new ArrayList<>();
             for (int i = 0; i < productIds.length; i++) {
                 if (productIds[i] != null && !productIds[i].isEmpty()) {
                     RequestItem item = new RequestItem();
                     item.setProductId(Long.parseLong(productIds[i]));
                     item.setQuantity(Integer.parseInt(quantities[i]));
-                    // Optional: set source location if selected
-                    if (sourceLocationIds != null && i < sourceLocationIds.length
-                            && sourceLocationIds[i] != null && !sourceLocationIds[i].isEmpty()) {
-                        item.setSourceLocationId(Long.parseLong(sourceLocationIds[i]));
-                    }
                     items.add(item);
                 }
             }
@@ -337,7 +338,9 @@ public class TransferController extends HttpServlet {
                 return;
             }
             
-            // Manager/Staff can only view transfers related to their warehouse
+            // Manager/Staff can only view transfers related to their warehouse.
+            // Additionally, a transfer in 'Created' status is only visible to
+            // the user who created it (creator-based visibility rule).
             HttpSession session = request.getSession(false);
             User currentUser = (User) session.getAttribute("user");
             if ("Manager".equals(currentUser.getRole()) || "Staff".equals(currentUser.getRole())) {
@@ -346,6 +349,17 @@ public class TransferController extends HttpServlet {
                         || (!userWarehouseId.equals(transfer.getSourceWarehouseId())
                             && !userWarehouseId.equals(transfer.getDestinationWarehouseId()))) {
                     request.setAttribute("errorMessage", "You don't have permission to view this transfer.");
+                    listTransfers(request, response);
+                    return;
+                }
+                // A 'Created' transfer is hidden from source-warehouse users who didn't create it.
+                // Destination-warehouse users can always view 'Created' transfers (needed for approval).
+                boolean isOnlyAtSource = userWarehouseId.equals(transfer.getSourceWarehouseId())
+                        && !userWarehouseId.equals(transfer.getDestinationWarehouseId());
+                if ("Created".equals(transfer.getStatus())
+                        && isOnlyAtSource
+                        && !currentUser.getId().equals(transfer.getCreatedBy())) {
+                    request.setAttribute("errorMessage", "This transfer has not been approved yet and is not visible to you.");
                     listTransfers(request, response);
                     return;
                 }
@@ -526,8 +540,8 @@ public class TransferController extends HttpServlet {
                 }
             }
             
-            // Must be Approved or InProgress
-            if (!"Approved".equals(transfer.getStatus()) && !"InProgress".equals(transfer.getStatus())) {
+            // Must be Approved (execution is now instant)
+            if (!"Approved".equals(transfer.getStatus())) {
                 request.setAttribute("errorMessage", "Transfer must be approved before execution");
                 viewTransfer(request, response);
                 return;
@@ -552,7 +566,7 @@ public class TransferController extends HttpServlet {
     }
     
     /**
-     * UC-TRF-003: Start outbound execution
+     * UC-TRF-003: Auto-execute outbound (validate inventory + deduct + transition to InTransit)
      */
     private void startOutbound(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -567,21 +581,23 @@ public class TransferController extends HttpServlet {
                 if (transfer == null || userWarehouseId == null 
                         || !userWarehouseId.equals(transfer.getSourceWarehouseId())) {
                     request.setAttribute("errorMessage", 
-                        "Only source warehouse staff can start transfer outbound.");
+                        "Only source warehouse staff can execute transfer outbound.");
                     listTransfers(request, response);
                     return;
                 }
             }
             
-            boolean success = transferService.startOutboundExecution(requestId);
+            String error = transferService.autoExecuteOutbound(requestId, currentUser.getId());
             
-            if (success) {
-                request.getSession().setAttribute("successMessage", "Outbound picking started");
+            if (error == null) {
+                request.getSession().setAttribute("successMessage", 
+                    "Outbound completed successfully. Goods are now in transit.");
+                response.sendRedirect(request.getContextPath() + 
+                    "/transfer?action=view&id=" + requestId);
+            } else {
+                request.getSession().setAttribute("errorMessage", error);
                 response.sendRedirect(request.getContextPath() + 
                     "/transfer?action=execute-outbound&id=" + requestId);
-            } else {
-                request.setAttribute("errorMessage", "Failed to start outbound execution");
-                showOutboundExecutionForm(request, response);
             }
             
         } catch (NumberFormatException e) {

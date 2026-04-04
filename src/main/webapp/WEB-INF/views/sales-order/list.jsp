@@ -53,7 +53,7 @@
                             <h4 class="mb-0">
                                 <i class="bx bx-cart me-2"></i>Sales Orders
                             </h4>
-                            <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales'}">
+                            <c:if test="${currentUser.role == 'Admin' || currentUser.role == 'Sales'}">
                                 <a href="${contextPath}/sales-order?action=create" class="btn btn-primary">
                                     <i class="bx bx-plus me-1"></i> Create Order
                                 </a>
@@ -164,7 +164,7 @@
                                                                         <i class="bx bx-show me-1"></i> View Details
                                                                     </a>
                                                                     
-                                                                    <c:if test="${orderData.order.status == 'Draft' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
+                                                                    <c:if test="${orderData.order.status == 'Draft' && (currentUser.role == 'Admin' || currentUser.role == 'Sales')}">
                                                                         <form action="${contextPath}/sales-order" method="post" style="display: inline;">
                                                                             <input type="hidden" name="action" value="confirm">
                                                                             <input type="hidden" name="id" value="${orderData.order.id}">
@@ -174,13 +174,13 @@
                                                                         </form>
                                                                     </c:if>
                                                                     
-                                                                    <c:if test="${orderData.order.status == 'Confirmed' && (currentUser.role == 'Admin' || currentUser.role == 'Manager')}">
+                                                                    <c:if test="${orderData.order.status == 'Confirmed' && (currentUser.role == 'Admin' || currentUser.role == 'Sales')}">
                                                                         <a class="dropdown-item" href="${contextPath}/sales-order?action=generate-outbound&id=${orderData.order.id}">
                                                                             <i class="bx bx-export me-1"></i> Generate Outbound
                                                                         </a>
                                                                     </c:if>
                                                                     
-                                                                    <c:if test="${orderData.order.status != 'Completed' && orderData.order.status != 'Cancelled' && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Sales')}">
+                                                                    <c:if test="${orderData.order.status != 'Completed' && orderData.order.status != 'Cancelled' && (currentUser.role == 'Admin' || currentUser.role == 'Sales')}">
                                                                         <a class="dropdown-item text-danger" href="${contextPath}/sales-order?action=cancel&id=${orderData.order.id}">
                                                                             <i class="bx bx-x-circle me-1"></i> Cancel Order
                                                                         </a>

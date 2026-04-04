@@ -11,6 +11,7 @@ public class Category implements Serializable {
     private Long id;
     private String name;
     private String description;
+    private String defaultUnit;
     
     // Default constructor
     public Category() {
@@ -47,12 +48,21 @@ public class Category implements Serializable {
         this.description = description;
     }
     
+    public String getDefaultUnit() {
+        return defaultUnit;
+    }
+    
+    public void setDefaultUnit(String defaultUnit) {
+        this.defaultUnit = defaultUnit;
+    }
+    
     @Override
     public String toString() {
         return "Category{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
                 ", description='" + description + '\'' +
+                ", defaultUnit='" + defaultUnit + '\'' +
                 '}';
     }
 }

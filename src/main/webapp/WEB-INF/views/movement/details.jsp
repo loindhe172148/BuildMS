@@ -77,7 +77,22 @@
                                 <a href="${contextPath}/movement" class="btn btn-outline-secondary me-2">
                                     <i class="bx bx-arrow-back me-1"></i>Back to List
                                 </a>
-                                <c:if test="${movementRequest.status == 'Created' || movementRequest.status == 'InProgress'}">
+                                <%-- Approve/Reject buttons: Admin/Manager, status = Created --%>
+                                <c:if test="${(currentUser.role == 'Admin' || currentUser.role == 'Manager') && movementRequest.status == 'Created'}">
+                                    <form action="${contextPath}/movement" method="post" class="d-inline me-2">
+                                        <input type="hidden" name="action" value="approve" />
+                                        <input type="hidden" name="id" value="${movementRequest.id}" />
+                                        <button type="submit" class="btn btn-success"
+                                                onclick="return confirm('Approve this movement request?')">
+                                            <i class="bx bx-check me-1"></i>Approve
+                                        </button>
+                                    </form>
+                                    <button type="button" class="btn btn-danger me-2"
+                                            data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                        <i class="bx bx-x me-1"></i>Reject
+                                    </button>
+                                </c:if>
+                                <c:if test="${movementRequest.status == 'Approved'}">
                                     <a href="${contextPath}/movement?action=execute&id=${movementRequest.id}" class="btn btn-primary">
                                         <i class="bx bx-play me-1"></i>Execute Movement
                                     </a>
@@ -105,6 +120,12 @@
                                         <c:choose>
                                             <c:when test="${movementRequest.status == 'Created'}">
                                                 <span class="badge bg-warning">Created</span>
+                                            </c:when>
+                                            <c:when test="${movementRequest.status == 'Approved'}">
+                                                <span class="badge bg-success">Approved</span>
+                                            </c:when>
+                                            <c:when test="${movementRequest.status == 'Rejected'}">
+                                                <span class="badge bg-danger">Rejected</span>
                                             </c:when>
                                             <c:when test="${movementRequest.status == 'InProgress'}">
                                                 <span class="badge bg-info">In Progress</span>
@@ -135,6 +156,37 @@
                                             </c:if>
                                         </p>
                                     </div>
+                                    <!-- Approved by info -->
+                                    <c:if test="${movementRequest.status == 'Approved' and not empty approvedByUser}">
+                                        <div class="col-md-3 mb-3">
+                                            <p class="text-muted mb-1">Approved By</p>
+                                            <p class="fw-bold"><c:out value="${approvedByUser.name}"/></p>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <p class="text-muted mb-1">Approved Date</p>
+                                            <p class="fw-bold">
+                                                <c:if test="${not empty movementRequest.approvedDate}">
+                                                    <c:out value="${movementRequest.approvedDate.toLocalDate()}"/> <c:out value="${movementRequest.approvedDate.toLocalTime().toString().substring(0, 5)}"/>
+                                                </c:if>
+                                            </p>
+                                        </div>
+                                    </c:if>
+                                    <!-- Rejected by info -->
+                                    <c:if test="${movementRequest.status == 'Rejected' and not empty rejectedByUser}">
+                                        <div class="col-md-3 mb-3">
+                                            <p class="text-muted mb-1">Rejected By</p>
+                                            <p class="fw-bold"><c:out value="${rejectedByUser.name}"/></p>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <p class="text-muted mb-1">Rejected Date</p>
+                                            <p class="fw-bold">
+                                                <c:if test="${not empty movementRequest.rejectedDate}">
+                                                    <c:out value="${movementRequest.rejectedDate.toLocalDate()}"/> <c:out value="${movementRequest.rejectedDate.toLocalTime().toString().substring(0, 5)}"/>
+                                                </c:if>
+                                            </p>
+                                        </div>
+                                    </c:if>
+                                    <!-- Completed by info -->
                                     <c:if test="${movementRequest.status == 'Completed' and not empty completedByUser}">
                                         <div class="col-md-3 mb-3">
                                             <p class="text-muted mb-1">Completed By</p>
@@ -155,6 +207,16 @@
                                         <div class="col-12">
                                             <p class="text-muted mb-1">Notes</p>
                                             <p><c:out value="${movementRequest.notes}"/></p>
+                                        </div>
+                                    </div>
+                                </c:if>
+                                <c:if test="${movementRequest.status == 'Rejected' and not empty movementRequest.rejectionReason}">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="alert alert-danger mb-0">
+                                                <strong><i class="bx bx-x-circle me-1"></i>Rejection Reason:</strong>
+                                                <c:out value="${movementRequest.rejectionReason}"/>
+                                            </div>
                                         </div>
                                     </div>
                                 </c:if>
@@ -231,5 +293,38 @@
     <!-- / Layout wrapper -->
     
     <jsp:include page="/WEB-INF/common/scripts.jsp" />
+
+    <%-- Reject Modal --%>
+    <c:if test="${(currentUser.role == 'Admin' || currentUser.role == 'Manager') && movementRequest.status == 'Created'}">
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectModalLabel">
+                        <i class="bx bx-x-circle text-danger me-1"></i>Reject Movement Request #<c:out value="${movementRequest.id}"/>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="${contextPath}/movement" method="post">
+                    <input type="hidden" name="action" value="reject" />
+                    <input type="hidden" name="id" value="${movementRequest.id}" />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="rejectReason" class="form-label fw-bold">Rejection Reason <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="rejectReason" name="reason" rows="4"
+                                      placeholder="Enter the reason for rejection..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bx bx-x me-1"></i>Confirm Rejection
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    </c:if>
 </body>
 </html>

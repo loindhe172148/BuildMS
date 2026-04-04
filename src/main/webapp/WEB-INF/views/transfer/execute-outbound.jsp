@@ -60,7 +60,7 @@
                                 <h4 class="mb-1">
                                     <i class="bx bx-export me-2"></i>Execute Outbound: #<c:out value="${transfer.id}"/>
                                 </h4>
-                                <p class="text-muted mb-0">Pick items from source warehouse for transfer</p>
+                                <p class="text-muted mb-0">Review inventory and confirm outbound shipment</p>
                             </div>
                             <a href="${contextPath}/transfer?action=view&id=${transfer.id}" class="btn btn-outline-secondary">
                                 <i class="bx bx-arrow-back me-1"></i> Back to Transfer
@@ -103,175 +103,118 @@
                             </div>
                         </div>
                         
-                        <!-- Status-based Content -->
-                        <c:choose>
-                            <c:when test="${transfer.status == 'Approved'}">
-                                <!-- Start Outbound -->
-                                <div class="card">
-                                    <div class="card-header bg-primary text-white">
-                                        <h5 class="mb-0"><i class="bx bx-play me-2"></i>Start Outbound Picking</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="alert alert-info mb-4">
-                                            <i class="bx bx-info-circle me-2"></i>
-                                            Starting the outbound process will mark this transfer as "In Progress". 
-                                            Review the items below and ensure all are available for picking.
-                                        </div>
-                                        
-                                        <!-- Availability Check -->
-                                        <h6 class="mb-3">Inventory Availability</h6>
-                                        <div class="table-responsive mb-4">
-                                            <table class="table table-bordered">
-                                                <thead class="table-light">
-                                                    <tr>
-                                                        <th>Product</th>
-                                                        <th>SKU</th>
-                                                        <th class="text-center">Required</th>
-                                                        <th class="text-center">Available</th>
-                                                        <th class="text-center">Status</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <c:set var="allAvailable" value="${true}" />
-                                                    <c:forEach var="check" items="${availability}">
-                                                        <c:if test="${check.available < check.item.quantity}">
-                                                            <c:set var="allAvailable" value="${false}" />
+                        <!-- Inventory Availability Check -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bx bx-check-shield me-2"></i>Inventory Availability Check</h5>
+                            </div>
+                            <div class="card-body">
+                                <c:set var="allAvailable" value="${true}" />
+                                <c:forEach var="check" items="${availability}">
+                                    <c:if test="${check.available < check.item.quantity}">
+                                        <c:set var="allAvailable" value="${false}" />
+                                    </c:if>
+                                </c:forEach>
+                                
+                                <div class="alert ${allAvailable ? 'alert-success' : 'alert-danger'} mb-4">
+                                    <i class="bx ${allAvailable ? 'bx-check-circle' : 'bx-error-circle'} me-2"></i>
+                                    <c:choose>
+                                        <c:when test="${allAvailable}">
+                                            <strong>All items are available.</strong> You can proceed with outbound execution. Inventory will be deducted automatically.
+                                        </c:when>
+                                        <c:otherwise>
+                                            <strong>Insufficient inventory.</strong> Some items do not have enough stock at the source warehouse.
+                                        </c:otherwise>
+                                    </c:choose>
+                                </div>
+                                
+                                <div class="table-responsive mb-4">
+                                    <table class="table table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>SKU</th>
+                                                <th class="text-center">Required</th>
+                                                <th class="text-center">Available</th>
+                                                <th class="text-center">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <c:forEach var="check" items="${availability}">
+                                                <tr>
+                                                    <td>
+                                                        <c:choose>
+                                                            <c:when test="${not empty check.product}">${check.product.name}</c:when>
+                                                            <c:otherwise>Product #${check.item.productId}</c:otherwise>
+                                                        </c:choose>
+                                                    </td>
+                                                    <td>
+                                                        <c:if test="${not empty check.product}">
+                                                            <code><c:out value="${check.product.sku}"/></code>
                                                         </c:if>
-                                                        <tr>
-                                                            <td>
-                                                                <c:choose>
-                                                                    <c:when test="${not empty check.product}">${check.product.name}</c:when>
-                                                                    <c:otherwise>Product #${check.item.productId}</c:otherwise>
-                                                                </c:choose>
-                                                            </td>
-                                                            <td>
-                                                                <c:if test="${not empty check.product}">
-                                                                    <code><c:out value="${check.product.sku}"/></code>
-                                                                </c:if>
-                                                            </td>
-                                                            <td class="text-center"><c:out value="${check.item.quantity}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
-                                                            <td class="text-center"><c:out value="${check.available}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
-                                                            <td class="text-center">
-                                                                <c:choose>
-                                                                    <c:when test="${check.available >= check.item.quantity}">
-                                                                        <span class="badge bg-success">
-                                                                            <i class="bx bx-check"></i> Available
-                                                                        </span>
-                                                                    </c:when>
-                                                                    <c:otherwise>
-                                                                        <span class="badge bg-danger">
-                                                                            <i class="bx bx-x"></i> Insufficient
-                                                                        </span>
-                                                                    </c:otherwise>
-                                                                </c:choose>
-                                                            </td>
-                                                        </tr>
-                                                    </c:forEach>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        
+                                                    </td>
+                                                    <td class="text-center"><c:out value="${check.item.quantity}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
+                                                    <td class="text-center"><c:out value="${check.available}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
+                                                    <td class="text-center">
+                                                        <c:choose>
+                                                            <c:when test="${check.available >= check.item.quantity}">
+                                                                <span class="badge bg-success">
+                                                                    <i class="bx bx-check"></i> Sufficient
+                                                                </span>
+                                                            </c:when>
+                                                            <c:otherwise>
+                                                                <span class="badge bg-danger">
+                                                                    <i class="bx bx-x"></i> Insufficient
+                                                                </span>
+                                                                <br>
+                                                                <small class="text-danger">Short by <c:out value="${check.item.quantity - check.available}"/></small>
+                                                            </c:otherwise>
+                                                        </c:choose>
+                                                    </td>
+                                                </tr>
+                                            </c:forEach>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Execute Button -->
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
                                         <c:choose>
                                             <c:when test="${allAvailable}">
-                                                <form method="post" action="${contextPath}/transfer">
-                                                    <input type="hidden" name="action" value="start-outbound">
-                                                    <input type="hidden" name="id" value="${transfer.id}">
-                                                    <div class="text-end">
-                                                        <button type="submit" class="btn btn-primary btn-lg">
-                                                            <i class="bx bx-play me-1"></i> Start Outbound
-                                                        </button>
-                                                    </div>
-                                                </form>
+                                                <p class="text-muted mb-0">
+                                                    This will deduct inventory and mark goods as in transit. This action cannot be undone.
+                                                </p>
                                             </c:when>
                                             <c:otherwise>
-                                                <div class="alert alert-danger">
-                                                    <i class="bx bx-error-circle me-2"></i>
-                                                    <strong>Cannot start outbound:</strong> Some items have insufficient inventory at the source warehouse.
-                                                </div>
+                                                <p class="text-danger mb-0">
+                                                    <i class="bx bx-error-circle me-1"></i>
+                                                    Cannot execute — resolve inventory shortages first.
+                                                </p>
                                             </c:otherwise>
                                         </c:choose>
                                     </div>
-                                </div>
-                            </c:when>
-                            
-                            <c:when test="${transfer.status == 'InProgress'}">
-                                <!-- Complete Outbound - Pick Items -->
-                                <form method="post" action="${contextPath}/transfer" id="pickForm">
-                                    <input type="hidden" name="action" value="complete-outbound">
-                                    <input type="hidden" name="id" value="${transfer.id}">
-                                    
-                                    <div class="card">
-                                        <div class="card-header bg-info text-white">
-                                            <h5 class="mb-0"><i class="bx bx-check-circle me-2"></i>Complete Picking</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="alert alert-warning mb-4">
-                                                <i class="bx bx-info-circle me-2"></i>
-                                                Enter the actual quantities picked for each item. The picked quantities will be deducted from inventory.
-                                            </div>
-                                            
-                                            <div class="table-responsive mb-4">
-                                                <table class="table table-bordered">
-                                                    <thead class="table-light">
-                                                        <tr>
-                                                            <th>Product</th>
-                                                            <th>SKU</th>
-                                                            <th class="text-center">Requested</th>
-                                                            <th class="text-center">Available</th>
-                                                            <th class="text-center" style="width: 150px;">Picked Qty</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                    <c:set var="allAvailable2" value="${true}" />
-                                                    <c:forEach var="check" items="${availability}">
-                                                        <c:if test="${check.available < check.item.quantity}">
-                                                            <c:set var="allAvailable2" value="${false}" />
-                                                        </c:if>
-                                                            <tr>
-                                                                <td>
-                                                                    <c:choose>
-                                                                        <c:when test="${not empty check.product}">${check.product.name}</c:when>
-                                                                        <c:otherwise>Product #${check.item.productId}</c:otherwise>
-                                                                    </c:choose>
-                                                                    <input type="hidden" name="productId[]" value="${check.item.productId}">
-                                                                </td>
-                                                                <td>
-                                                                    <c:if test="${not empty check.product}">
-                                                                        <code><c:out value="${check.product.sku}"/></code>
-                                                                    </c:if>
-                                                                </td>
-                                                                <td class="text-center"><c:out value="${check.item.quantity}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
-                                                                <td class="text-center"><c:out value="${check.available}"/> <c:if test="${not empty check.product}"><span class="text-muted"><c:out value="${check.product.unit}"/></span></c:if></td>
-                                                                <td class="text-center">
-                                                                    <input type="number" name="pickedQty[]" 
-                                                                           class="form-control form-control-sm text-center"
-                                                                           value="<c:out value='${check.item.quantity <= check.available ? check.item.quantity : check.available}'/>"
-                                                                           min="0" max="${check.available}" required>
-                                                                </td>
-                                                            </tr>
-                                                        </c:forEach>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                            
-                                            <div class="text-end">
+                                    <c:choose>
+                                        <c:when test="${allAvailable}">
+                                            <form method="post" action="${contextPath}/transfer"
+                                                  onsubmit="return confirm('Execute outbound? Inventory will be deducted and goods marked as in transit. This cannot be undone.');">
+                                                <input type="hidden" name="action" value="start-outbound">
+                                                <input type="hidden" name="id" value="${transfer.id}">
                                                 <button type="submit" class="btn btn-success btn-lg">
-                                                    <i class="bx bx-check-double me-1"></i> Complete Outbound
+                                                    <i class="bx bx-check-double me-1"></i> Confirm & Execute Outbound
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </form>
-                            </c:when>
-                            
-                            <c:otherwise>
-                                <div class="alert alert-info">
-                                    <i class="bx bx-info-circle me-2"></i>
-                                    This transfer is not in a state that requires outbound execution.
-                                    Current status: <strong><c:out value="${transfer.status}"/></strong>
+                                            </form>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <button type="button" class="btn btn-success btn-lg" disabled
+                                                    title="Resolve inventory shortages before executing">
+                                                <i class="bx bx-check-double me-1"></i> Confirm & Execute Outbound
+                                            </button>
+                                        </c:otherwise>
+                                    </c:choose>
                                 </div>
-                            </c:otherwise>
-                        </c:choose>
+                            </div>
+                        </div>
                         
                     </main>
                     <!-- / Content -->

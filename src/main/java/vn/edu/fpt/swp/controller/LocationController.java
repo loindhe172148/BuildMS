@@ -6,9 +6,11 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import vn.edu.fpt.swp.model.Category;
 import vn.edu.fpt.swp.model.Location;
 import vn.edu.fpt.swp.model.User;
 import vn.edu.fpt.swp.model.Warehouse;
+import vn.edu.fpt.swp.service.CategoryService;
 import vn.edu.fpt.swp.service.LocationService;
 import vn.edu.fpt.swp.service.WarehouseService;
 import vn.edu.fpt.swp.util.PageRequest;
@@ -34,11 +36,13 @@ public class LocationController extends HttpServlet {
     
     private LocationService locationService;
     private WarehouseService warehouseService;
+    private CategoryService categoryService;
     
     @Override
     public void init() throws ServletException {
         locationService = new LocationService();
         warehouseService = new WarehouseService();
+        categoryService = new CategoryService();
     }
     
     @Override
@@ -167,12 +171,23 @@ public class LocationController extends HttpServlet {
         String type = request.getParameter("type");
         String status = request.getParameter("status");
         String keyword = request.getParameter("keyword");
+        String categoryIdStr = request.getParameter("categoryId");
 
         Long selectedWarehouseId = null;
         String selectedType = null;
         String selectedStatus = null;
         String selectedKeyword = null;
         Boolean statusFilter = null;
+        Long selectedCategoryId = null;
+
+        if (categoryIdStr != null && !categoryIdStr.trim().isEmpty()) {
+            try {
+                selectedCategoryId = Long.parseLong(categoryIdStr.trim());
+                request.setAttribute("categoryId", selectedCategoryId);
+            } catch (NumberFormatException e) {
+                // ignore
+            }
+        }
 
         // Staff/Manager can only view locations for their assigned warehouse
         if (isWarehouseScoped(request)) {
@@ -216,6 +231,7 @@ public class LocationController extends HttpServlet {
             selectedType,
             statusFilter,
             selectedKeyword,
+            selectedCategoryId,
             pageRequest
         );
         
@@ -234,11 +250,22 @@ public class LocationController extends HttpServlet {
         java.util.Map<Long, Integer> inventoryCountMap = locationService.getAllLocationInventoryCounts();
         request.setAttribute("inventoryCountMap", inventoryCountMap);
 
+        // Category data for display and filtering
+        List<Category> categories = categoryService.getAllCategories();
+        request.setAttribute("categories", categories);
+
+        java.util.Map<Long, String> categoryMap = new java.util.HashMap<>();
+        for (Category cat : categories) {
+            categoryMap.put(cat.getId(), cat.getName());
+        }
+        request.setAttribute("categoryMap", categoryMap);
+
         Map<String, String> paginationParams = new LinkedHashMap<>();
         paginationParams.put("warehouseId", selectedWarehouseId != null ? String.valueOf(selectedWarehouseId) : null);
         paginationParams.put("type", selectedType);
         paginationParams.put("status", selectedStatus);
         paginationParams.put("keyword", selectedKeyword);
+        paginationParams.put("categoryId", selectedCategoryId != null ? String.valueOf(selectedCategoryId) : null);
         paginationParams.put("size", String.valueOf(pageRequest.getSize()));
 
         request.setAttribute("locations", locationPage.getItems());
@@ -298,6 +325,8 @@ public class LocationController extends HttpServlet {
         request.setAttribute("isWarehouseScoped", isWarehouseScoped(request));
         
         request.setAttribute("warehouses", warehouses);
+        List<Category> categories = categoryService.getAllCategories();
+        request.setAttribute("categories", categories);
         request.getRequestDispatcher("/WEB-INF/views/location/add.jsp").forward(request, response);
     }
     
@@ -316,6 +345,15 @@ public class LocationController extends HttpServlet {
         String warehouseIdStr = request.getParameter("warehouseId");
         String code = request.getParameter("code");
         String type = request.getParameter("type");
+        String categoryIdStr = request.getParameter("categoryId");
+        Long categoryId = null;
+        if (categoryIdStr != null && !categoryIdStr.trim().isEmpty()) {
+            try {
+                categoryId = Long.parseLong(categoryIdStr.trim());
+            } catch (NumberFormatException e) {
+                // Ignore invalid - treat as no restriction
+            }
+        }
         
         // Validate required fields
         boolean hasError = false;
@@ -359,13 +397,15 @@ public class LocationController extends HttpServlet {
             request.setAttribute("warehouseId", warehouseId);
             request.setAttribute("code", code);
             request.setAttribute("type", type);
+            request.setAttribute("categoryId", categoryId);
             request.setAttribute("warehouses", warehouseService.getAllWarehouses());
+            request.setAttribute("categories", categoryService.getAllCategories());
             request.getRequestDispatcher("/WEB-INF/views/location/add.jsp").forward(request, response);
             return;
         }
         
         // Create location
-        Location created = locationService.createLocation(warehouseId, code.trim(), type.trim());
+        Location created = locationService.createLocation(warehouseId, code.trim(), type.trim(), categoryId);
         
         if (created == null) {
             // AF-1: Duplicate Location Code
@@ -373,7 +413,9 @@ public class LocationController extends HttpServlet {
             request.setAttribute("warehouseId", warehouseId);
             request.setAttribute("code", code);
             request.setAttribute("type", type);
+            request.setAttribute("categoryId", categoryId);
             request.setAttribute("warehouses", warehouseService.getAllWarehouses());
+            request.setAttribute("categories", categoryService.getAllCategories());
             request.getRequestDispatcher("/WEB-INF/views/location/add.jsp").forward(request, response);
             return;
         }
@@ -434,6 +476,8 @@ public class LocationController extends HttpServlet {
             request.setAttribute("location", location);
             request.setAttribute("warehouse", warehouse);
             request.setAttribute("inventoryCount", inventoryCount);
+            List<Category> categories = categoryService.getAllCategories();
+            request.setAttribute("categories", categories);
             request.getRequestDispatcher("/WEB-INF/views/location/edit.jsp").forward(request, response);
             
         } catch (NumberFormatException e) {
@@ -457,6 +501,13 @@ public class LocationController extends HttpServlet {
         String idParam = request.getParameter("id");
         String code = request.getParameter("code");
         String type = request.getParameter("type");
+        String categoryIdStr = request.getParameter("categoryId");
+        Long categoryId = null;
+        if (categoryIdStr != null && !categoryIdStr.trim().isEmpty()) {
+            try {
+                categoryId = Long.parseLong(categoryIdStr.trim());
+            } catch (NumberFormatException e) { /* no restriction */ }
+        }
         
         // Validate ID
         if (idParam == null || idParam.trim().isEmpty()) {
@@ -503,6 +554,8 @@ public class LocationController extends HttpServlet {
                     request.setAttribute("warehouse", warehouseService.getWarehouseById(location.getWarehouseId()));
                     request.setAttribute("inventoryCount", locationService.getInventoryCount(id));
                 }
+                request.setAttribute("categoryId", categoryId);
+                request.setAttribute("categories", categoryService.getAllCategories());
                 request.getRequestDispatcher("/WEB-INF/views/location/edit.jsp").forward(request, response);
                 return;
             }
@@ -512,21 +565,22 @@ public class LocationController extends HttpServlet {
             Long warehouseId = existing != null ? existing.getWarehouseId() : null;
             
             // Update location
-            boolean updated = locationService.updateLocation(id, code.trim(), type.trim());
+            boolean updated = locationService.updateLocation(id, code.trim(), type.trim(), categoryId);
             
             if (!updated) {
-                // Could be duplicate code or location not found
+                // Could be duplicate code, location not found, or category conflict
                 Location loc = locationService.getLocationById(id);
                 if (loc == null) {
                     request.getSession().setAttribute("errorMessage", "Location not found");
                 } else {
-                    // AF-2: Duplicate Location Code
-                    request.setAttribute("errorMessage", "Location code already exists in this warehouse");
+                    request.setAttribute("errorMessage", "Could not update location. Ensure location code is unique and there is no category conflict with existing inventory");
                     loc.setCode(code);
                     loc.setType(type);
                     request.setAttribute("location", loc);
                     request.setAttribute("warehouse", warehouseService.getWarehouseById(loc.getWarehouseId()));
                     request.setAttribute("inventoryCount", locationService.getInventoryCount(id));
+                    request.setAttribute("categoryId", categoryId);
+                    request.setAttribute("categories", categoryService.getAllCategories());
                     request.getRequestDispatcher("/WEB-INF/views/location/edit.jsp").forward(request, response);
                     return;
                 }

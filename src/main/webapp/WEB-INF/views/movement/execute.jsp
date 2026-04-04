@@ -50,29 +50,16 @@
                         </nav>
                         
                         <!-- Alerts -->
-                        <c:if test="${not empty sessionScope.successMessage}">
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                <i class="bx bx-check-circle me-2"></i>
-                                <c:out value="${sessionScope.successMessage}"/>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                            <c:remove var="successMessage" scope="session" />
-                        </c:if>
-                        
-                        <c:if test="${not empty sessionScope.errorMessage}">
-                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                                <i class="bx bx-error-circle me-2"></i>
-                                <c:out value="${sessionScope.errorMessage}"/>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                            <c:remove var="errorMessage" scope="session" />
-                        </c:if>
+                        <jsp:include page="/WEB-INF/common/alerts.jsp" />
                         
                         <!-- Page Header -->
                         <div class="d-flex justify-content-between align-items-center mb-6">
-                            <h4 class="mb-0">
-                                <i class="bx bx-play-circle me-2"></i>Execute Movement #<c:out value="${movementRequest.id}"/>
-                            </h4>
+                            <div>
+                                <h4 class="mb-1">
+                                    <i class="bx bx-play-circle me-2"></i>Execute Movement #<c:out value="${movementRequest.id}"/>
+                                </h4>
+                                <p class="text-muted mb-0">Review inventory and confirm movement execution</p>
+                            </div>
                             <a href="${contextPath}/movement?action=details&id=${movementRequest.id}" class="btn btn-outline-secondary">
                                 <i class="bx bx-arrow-back me-1"></i>Back to Details
                             </a>
@@ -97,62 +84,27 @@
                                     </div>
                                     <div class="col-md-3">
                                         <p class="text-muted mb-0">Status</p>
-                                        <c:choose>
-                                            <c:when test="${movementRequest.status == 'Created'}">
-                                                <span class="badge bg-warning fs-6">Created</span>
-                                            </c:when>
-                                            <c:when test="${movementRequest.status == 'InProgress'}">
-                                                <span class="badge bg-info fs-6">In Progress</span>
-                                            </c:when>
-                                            <c:otherwise>
-                                                <span class="badge bg-secondary fs-6"><c:out value="${movementRequest.status}"/></span>
-                                            </c:otherwise>
-                                        </c:choose>
-                                    </div>
-                                    <div class="col-md-5 text-md-end">
-                                        <c:choose>
-                                            <c:when test="${movementRequest.status == 'Created'}">
-                                                <form action="${contextPath}/movement" method="post" class="d-inline">
-                                                    <input type="hidden" name="action" value="start" />
-                                                    <input type="hidden" name="id" value="${movementRequest.id}" />
-                                                    <button type="submit" class="btn btn-primary">
-                                                        <i class="bx bx-play me-1"></i>Start Movement
-                                                    </button>
-                                                </form>
-                                            </c:when>
-                                            <c:when test="${movementRequest.status == 'InProgress'}">
-                                                <form action="${contextPath}/movement" method="post" class="d-inline" 
-                                                      onsubmit="return confirm('Are you sure you want to complete this movement? This will update inventory levels.');">
-                                                    <input type="hidden" name="action" value="complete" />
-                                                    <input type="hidden" name="id" value="${movementRequest.id}" />
-                                                    <button type="submit" class="btn btn-success">
-                                                        <i class="bx bx-check me-1"></i>Complete Movement
-                                                    </button>
-                                                </form>
-                                            </c:when>
-                                        </c:choose>
+                                        <span class="badge bg-success fs-6">Approved</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- Instructions -->
-                        <c:if test="${movementRequest.status == 'InProgress'}">
-                            <div class="alert alert-info mb-6">
-                                <h6 class="alert-heading mb-2">
-                                    <i class="bx bx-info-circle me-1"></i>Execution Instructions
-                                </h6>
-                                <ol class="mb-0 ps-3">
-                                    <li>Navigate to each source location and pick the specified quantities.</li>
-                                    <li>Transport items to the destination locations.</li>
-                                    <li>Place items at the destination locations.</li>
-                                    <li>Once all items are moved, click "Complete Movement" to update inventory.</li>
-                                </ol>
-                            </div>
-                        </c:if>
+                        <!-- Availability Summary -->
+                        <div class="alert ${allItemsAvailable ? 'alert-success' : 'alert-danger'} mb-6">
+                            <i class="bx ${allItemsAvailable ? 'bx-check-circle' : 'bx-error-circle'} me-2"></i>
+                            <c:choose>
+                                <c:when test="${allItemsAvailable}">
+                                    <strong>All items available.</strong> Sufficient inventory at all source locations. Ready to execute.
+                                </c:when>
+                                <c:otherwise>
+                                    <strong>Insufficient inventory.</strong> One or more items do not have enough stock at the source location. Resolve before executing.
+                                </c:otherwise>
+                            </c:choose>
+                        </div>
                         
                         <!-- Movement Items -->
-                        <div class="card">
+                        <div class="card mb-6">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Items to Move</h5>
                                 <span class="badge bg-primary">${fn:length(itemsWithDetails)} items</span>
@@ -167,7 +119,7 @@
                                             <th>To Location</th>
                                             <th>Qty to Move</th>
                                             <th>Source Available</th>
-                                            <th>Dest Current</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -177,7 +129,6 @@
                                             <c:set var="srcLoc" value="${itemData.sourceLocation}" />
                                             <c:set var="destLoc" value="${itemData.destinationLocation}" />
                                             <c:set var="srcQty" value="${itemData.sourceQuantity}" />
-                                            <c:set var="destQty" value="${itemData.destinationQuantity}" />
                                             <tr>
                                                 <td>${status.count}</td>
                                                 <td>
@@ -219,7 +170,17 @@
                                                         </c:otherwise>
                                                     </c:choose>
                                                 </td>
-                                                <td><c:out value="${destQty}"/></td>
+                                                <td>
+                                                    <c:choose>
+                                                        <c:when test="${srcQty >= item.quantity}">
+                                                            <span class="badge bg-success">Sufficient</span>
+                                                        </c:when>
+                                                        <c:otherwise>
+                                                            <span class="badge bg-danger">Insufficient</span>
+                                                            <br><small class="text-danger">Short by <c:out value="${item.quantity - srcQty}"/></small>
+                                                        </c:otherwise>
+                                                    </c:choose>
+                                                </td>
                                             </tr>
                                         </c:forEach>
                                     </tbody>
@@ -227,54 +188,47 @@
                             </div>
                         </div>
                         
-                        <!-- Summary after move -->
-                        <c:if test="${movementRequest.status == 'InProgress'}">
-                            <div class="card mt-6">
-                                <div class="card-header">
-                                    <h5 class="mb-0">Expected Result After Completion</h5>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="table">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Product</th>
-                                                <th>Source Location</th>
-                                                <th>Current → After</th>
-                                                <th>Destination Location</th>
-                                                <th>Current → After</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <c:forEach var="itemData" items="${itemsWithDetails}">
-                                                <c:set var="item" value="${itemData.item}" />
-                                                <c:set var="product" value="${itemData.product}" />
-                                                <c:set var="srcLoc" value="${itemData.sourceLocation}" />
-                                                <c:set var="destLoc" value="${itemData.destinationLocation}" />
-                                                <c:set var="srcQty" value="${itemData.sourceQuantity}" />
-                                                <c:set var="destQty" value="${itemData.destinationQuantity}" />
-                                                <tr>
-                                                    <td><strong><c:out value="${product.sku}"/></strong></td>
-                                                    <td><c:out value="${srcLoc.code}"/></td>
-                                                    <td>
-                                                        <span class="text-muted"><c:out value="${srcQty}"/></span>
-                                                        <i class="bx bx-right-arrow-alt mx-2"></i>
-                                                        <span class="fw-bold text-danger"><c:out value="${srcQty - item.quantity}"/></span>
-                                                        <small class="text-danger ms-1">(-<c:out value="${item.quantity}"/>)</small>
-                                                    </td>
-                                                    <td><c:out value="${destLoc.code}"/></td>
-                                                    <td>
-                                                        <span class="text-muted"><c:out value="${destQty}"/></span>
-                                                        <i class="bx bx-right-arrow-alt mx-2"></i>
-                                                        <span class="fw-bold text-success"><c:out value="${destQty + item.quantity}"/></span>
-                                                        <small class="text-success ms-1">(+<c:out value="${item.quantity}"/>)</small>
-                                                    </td>
-                                                </tr>
-                                            </c:forEach>
-                                        </tbody>
-                                    </table>
+                        <!-- Execute Button -->
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">Confirm & Execute</h6>
+                                        <c:choose>
+                                            <c:when test="${allItemsAvailable}">
+                                                <p class="text-muted mb-0">
+                                                    Inventory will be deducted from source and added to destination locations. This cannot be undone.
+                                                </p>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <p class="text-danger mb-0">
+                                                    <i class="bx bx-error-circle me-1"></i>
+                                                    Cannot execute — resolve inventory shortages first.
+                                                </p>
+                                            </c:otherwise>
+                                        </c:choose>
+                                    </div>
+                                    <c:choose>
+                                        <c:when test="${allItemsAvailable}">
+                                            <form action="${contextPath}/movement" method="post" class="d-inline" 
+                                                  onsubmit="return confirm('Execute this movement? Inventory will be updated. This cannot be undone.');">
+                                                <input type="hidden" name="action" value="start" />
+                                                <input type="hidden" name="id" value="${movementRequest.id}" />
+                                                <button type="submit" class="btn btn-success btn-lg">
+                                                    <i class="bx bx-check-double me-1"></i>Confirm & Execute
+                                                </button>
+                                            </form>
+                                        </c:when>
+                                        <c:otherwise>
+                                            <button type="button" class="btn btn-success btn-lg" disabled
+                                                    title="Resolve inventory shortages before executing">
+                                                <i class="bx bx-check-double me-1"></i>Confirm & Execute
+                                            </button>
+                                        </c:otherwise>
+                                    </c:choose>
                                 </div>
                             </div>
-                        </c:if>
+                        </div>
                         
                     </main>
                     <!-- / Content -->

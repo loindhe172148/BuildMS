@@ -84,6 +84,12 @@ public class InboundService {
                     !location.getWarehouseId().equals(request.getDestinationWarehouseId())) {
                     return null; // Invalid location
                 }
+                // Category restriction check
+                if (location.getCategoryId() != null) {
+                    if (product == null || !location.getCategoryId().equals(product.getCategoryId())) {
+                        return null; // Location restricted to different category
+                    }
+                }
             }
         }
         
@@ -253,16 +259,24 @@ public class InboundService {
             
             Long locationId = item.getLocationId();
             if (locationId == null) {
-                // Need a default location - get first active location in warehouse
-                List<Location> locations = locationDAO.findByWarehouse(warehouseId);
-                for (Location loc : locations) {
-                    if (loc.isActive()) {
-                        locationId = loc.getId();
-                        break;
-                    }
+                // Get first active location compatible with product's category
+                Product product = productDAO.findById(item.getProductId());
+                Long productCatId = (product != null) ? product.getCategoryId() : null;
+                List<Location> compatibleLocations = locationDAO.findActiveByWarehouseAndCategory(warehouseId, productCatId);
+                if (!compatibleLocations.isEmpty()) {
+                    locationId = compatibleLocations.get(0).getId();
                 }
                 if (locationId == null) {
-                    return false; // No valid location
+                    return false; // No compatible location
+                }
+            } else {
+                // BR-EXE-006: Validate the specified location is compatible
+                Location loc = locationDAO.findById(locationId);
+                if (loc != null && loc.getCategoryId() != null) {
+                    Product product = productDAO.findById(item.getProductId());
+                    if (product == null || !loc.getCategoryId().equals(product.getCategoryId())) {
+                        return false; // Category mismatch
+                    }
                 }
             }
             

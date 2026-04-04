@@ -22,7 +22,7 @@ public class CategoryDAO {
      * @return Category object if found, null otherwise
      */
     public Category findById(Long id) {
-        String sql = "SELECT id, name, description FROM Categories WHERE id = ?";
+        String sql = "SELECT id, name, description, DefaultUnit FROM Categories WHERE id = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -47,7 +47,7 @@ public class CategoryDAO {
      * @return Category object if found, null otherwise
      */
     public Category findByName(String name) {
-        String sql = "SELECT id, name, description FROM Categories WHERE name = ?";
+        String sql = "SELECT id, name, description, DefaultUnit FROM Categories WHERE name = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -71,7 +71,7 @@ public class CategoryDAO {
      * @return List of all categories
      */
     public List<Category> getAll() {
-        String sql = "SELECT id, name, description FROM Categories ORDER BY name";
+        String sql = "SELECT id, name, description, DefaultUnit FROM Categories ORDER BY name";
         List<Category> categories = new ArrayList<>();
         
         try (Connection conn = DBConnection.getConnection();
@@ -98,13 +98,14 @@ public class CategoryDAO {
             return null;
         }
         
-        String sql = "INSERT INTO Categories (name, description) VALUES (?, ?)";
+        String sql = "INSERT INTO Categories (name, description, DefaultUnit) VALUES (?, ?, ?)";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
             stmt.setString(1, category.getName().trim());
             stmt.setString(2, category.getDescription() != null ? category.getDescription().trim() : null);
+            stmt.setString(3, category.getDefaultUnit() != null ? category.getDefaultUnit().trim() : null);
             
             int affectedRows = stmt.executeUpdate();
             
@@ -134,14 +135,15 @@ public class CategoryDAO {
             return false;
         }
         
-        String sql = "UPDATE Categories SET name = ?, description = ? WHERE id = ?";
+        String sql = "UPDATE Categories SET name = ?, description = ?, DefaultUnit = ? WHERE id = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setString(1, category.getName().trim());
             stmt.setString(2, category.getDescription() != null ? category.getDescription().trim() : null);
-            stmt.setLong(3, category.getId());
+            stmt.setString(3, category.getDefaultUnit() != null ? category.getDefaultUnit().trim() : null);
+            stmt.setLong(4, category.getId());
             
             int affectedRows = stmt.executeUpdate();
             return affectedRows > 0;
@@ -218,7 +220,7 @@ public class CategoryDAO {
             return getAll();
         }
         
-        String sql = "SELECT id, name, description FROM Categories " +
+        String sql = "SELECT id, name, description, DefaultUnit FROM Categories " +
                      "WHERE name LIKE ? OR description LIKE ? " +
                      "ORDER BY name";
         
@@ -254,7 +256,7 @@ public class CategoryDAO {
         }
 
         String countSql = "SELECT COUNT(*)" + fromClause;
-        String dataSql = "SELECT id, name, description" + fromClause
+        String dataSql = "SELECT id, name, description, DefaultUnit" + fromClause
             + " ORDER BY name OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
 
         long totalItems = 0L;
@@ -323,6 +325,25 @@ public class CategoryDAO {
         category.setId(rs.getLong("id"));
         category.setName(rs.getString("name"));
         category.setDescription(rs.getString("description"));
+        category.setDefaultUnit(rs.getString("DefaultUnit"));
         return category;
+    }
+    
+    /**
+     * Count locations that reference this category (for BR-CAT-006 delete guard).
+     */
+    public int countLocations(Long categoryId) {
+        if (categoryId == null || categoryId <= 0) return 0;
+        String sql = "SELECT COUNT(*) FROM Locations WHERE CategoryId = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setLong(1, categoryId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 }

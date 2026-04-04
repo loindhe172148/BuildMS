@@ -259,6 +259,74 @@ public class TransferService {
     // ========== UC-TRF-003: Execute Transfer Outbound ==========
     
     /**
+     * Auto-execute outbound: validate inventory, deduct, and transition to InTransit in one step.
+     * @param requestId Request ID
+     * @param userId User performing execution
+     * @return null on success, error message on failure
+     */
+    public String autoExecuteOutbound(Long requestId, Long userId) {
+        if (requestId == null || userId == null) {
+            return "Invalid request or user.";
+        }
+        
+        Request request = getTransferRequestById(requestId);
+        if (request == null) {
+            return "Transfer request not found.";
+        }
+        if (!"Approved".equals(request.getStatus())) {
+            return "Request must be in 'Approved' status to execute outbound.";
+        }
+        
+        Long sourceWarehouseId = request.getSourceWarehouseId();
+        if (sourceWarehouseId == null) {
+            return "No source warehouse assigned.";
+        }
+        
+        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
+        if (items.isEmpty()) {
+            return "No items found in this request.";
+        }
+        
+        // Validate ALL items have sufficient inventory
+        StringBuilder shortageInfo = new StringBuilder();
+        boolean hasShortage = false;
+        for (RequestItem item : items) {
+            int available = inventoryDAO.getTotalQuantityByProductAndWarehouse(item.getProductId(), sourceWarehouseId);
+            if (available < item.getQuantity()) {
+                hasShortage = true;
+                Product product = productDAO.findById(item.getProductId());
+                String productName = product != null ? product.getName() : "Product #" + item.getProductId();
+                shortageInfo.append(productName)
+                    .append(": need ").append(item.getQuantity())
+                    .append(", available ").append(available).append(". ");
+            }
+        }
+        
+        if (hasShortage) {
+            return "Insufficient inventory: " + shortageInfo.toString();
+        }
+        
+        // Start execution
+        boolean started = requestDAO.startExecution(requestId);
+        if (!started) {
+            return "Failed to start execution.";
+        }
+        
+        // Auto-complete: deduct inventory using full requested quantities
+        Map<Long, Integer> pickedQuantities = new HashMap<>();
+        for (RequestItem item : items) {
+            pickedQuantities.put(item.getProductId(), item.getQuantity());
+        }
+        
+        boolean completed = completeOutboundExecution(requestId, userId, pickedQuantities);
+        if (!completed) {
+            return "Failed to complete outbound execution.";
+        }
+        
+        return null; // Success
+    }
+    
+    /**
      * Start outbound execution (picking)
      * @param requestId Request ID
      * @return true if successful
@@ -311,45 +379,30 @@ public class TransferService {
                 continue;
             }
             
+            // Find inventory across locations at source warehouse
+            List<Inventory> inventories = inventoryDAO.findByProduct(item.getProductId());
             int remainingToDecrease = qtyToDecrease;
-
-            // If a specific source location was chosen at creation time, deduct from it first
-            if (item.getSourceLocationId() != null) {
-                Inventory inv = inventoryDAO.findByProductAndLocation(
-                    item.getProductId(), sourceWarehouseId, item.getSourceLocationId());
-                if (inv != null && inv.getQuantity() > 0) {
-                    int toDecrease = Math.min(inv.getQuantity(), remainingToDecrease);
+            
+            for (Inventory inv : inventories) {
+                if (!inv.getWarehouseId().equals(sourceWarehouseId)) {
+                    continue; // Only from source warehouse
+                }
+                if (remainingToDecrease <= 0) {
+                    break;
+                }
+                
+                int available = inv.getQuantity();
+                int toDecrease = Math.min(available, remainingToDecrease);
+                
+                if (toDecrease > 0) {
                     boolean decreased = inventoryDAO.decreaseQuantity(
-                        item.getProductId(), sourceWarehouseId, item.getSourceLocationId(), toDecrease);
+                        item.getProductId(),
+                        sourceWarehouseId,
+                        inv.getLocationId(),
+                        toDecrease
+                    );
                     if (decreased) {
                         remainingToDecrease -= toDecrease;
-                    }
-                }
-            }
-
-            // Fall back to any remaining locations at source warehouse
-            if (remainingToDecrease > 0) {
-                List<Inventory> inventories = inventoryDAO.findByProduct(item.getProductId());
-                for (Inventory inv : inventories) {
-                    if (!inv.getWarehouseId().equals(sourceWarehouseId)) {
-                        continue; // Only from source warehouse
-                    }
-                    // Skip the already-processed source location
-                    if (item.getSourceLocationId() != null
-                            && item.getSourceLocationId().equals(inv.getLocationId())) {
-                        continue;
-                    }
-                    if (remainingToDecrease <= 0) {
-                        break;
-                    }
-                    int available = inv.getQuantity();
-                    int toDecrease = Math.min(available, remainingToDecrease);
-                    if (toDecrease > 0) {
-                        boolean decreased = inventoryDAO.decreaseQuantity(
-                            item.getProductId(), sourceWarehouseId, inv.getLocationId(), toDecrease);
-                        if (decreased) {
-                            remainingToDecrease -= toDecrease;
-                        }
                     }
                 }
             }
@@ -422,6 +475,14 @@ public class TransferService {
                 return false;
             }
             
+            // BR-TRI-009: Validate destination location category compatibility
+            if (location.getCategoryId() != null) {
+                Product product = productDAO.findById(item.getProductId());
+                if (product == null || !location.getCategoryId().equals(product.getCategoryId())) {
+                    return false; // Category mismatch at destination
+                }
+            }
+            
             int qtyToReceive = receivedQuantities.getOrDefault(item.getProductId(), item.getQuantity());
             
             // Add to destination warehouse at specified location
@@ -465,53 +526,30 @@ public class TransferService {
     }
     
     /**
-     * Get products with inventory at a warehouse, including per-location breakdown.
+     * Get products with inventory at a warehouse
      * @param warehouseId Warehouse ID
-     * @return List of products with inventory info and location list
+     * @return List of products with inventory info
      */
     public List<Map<String, Object>> getProductsWithInventoryAtWarehouse(Long warehouseId) {
         List<Map<String, Object>> result = new ArrayList<>();
         List<Inventory> inventories = inventoryDAO.findByWarehouse(warehouseId);
-
-        // Group by product: productId -> totalQty
+        
+        // Group by product
         Map<Long, Integer> productQuantities = new HashMap<>();
-        // Group by product: productId -> list of location inventory rows
-        Map<Long, List<Inventory>> productLocationInventories = new HashMap<>();
-
         for (Inventory inv : inventories) {
-            if (inv.getQuantity() == null || inv.getQuantity() <= 0) continue;
             productQuantities.merge(inv.getProductId(), inv.getQuantity(), Integer::sum);
-            productLocationInventories
-                .computeIfAbsent(inv.getProductId(), k -> new ArrayList<>())
-                .add(inv);
         }
-
+        
         for (Map.Entry<Long, Integer> entry : productQuantities.entrySet()) {
             Product product = productDAO.findById(entry.getKey());
             if (product != null && product.isActive()) {
-                // Build per-location list for this product
-                List<Map<String, Object>> locationList = new ArrayList<>();
-                List<Inventory> locInvs = productLocationInventories.getOrDefault(entry.getKey(), new ArrayList<>());
-                for (Inventory inv : locInvs) {
-                    Location loc = locationDAO.findById(inv.getLocationId());
-                    if (loc != null && loc.isActive()) {
-                        Map<String, Object> locInfo = new HashMap<>();
-                        locInfo.put("locationId", inv.getLocationId());
-                        locInfo.put("locationCode", loc.getCode());
-                        locInfo.put("locationType", loc.getType());
-                        locInfo.put("quantity", inv.getQuantity());
-                        locationList.add(locInfo);
-                    }
-                }
-
                 Map<String, Object> item = new HashMap<>();
                 item.put("product", product);
                 item.put("totalQuantity", entry.getValue());
-                item.put("locations", locationList);
                 result.add(item);
             }
         }
-
+        
         return result;
     }
     

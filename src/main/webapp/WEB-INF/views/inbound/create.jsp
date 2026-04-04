@@ -101,6 +101,18 @@
                                                 </c:choose>
                                             </div>
                                             
+                                            <!-- Provider -->
+                                            <div class="mb-4">
+                                                <label for="providerId" class="form-label">Provider (Optional)</label>
+                                                <select class="form-select" id="providerId" name="providerId">
+                                                    <option value="">Select provider...</option>
+                                                    <c:forEach var="provider" items="${providers}">
+                                                        <option value="<c:out value='${provider.id}'/>"><c:out value="${provider.code}"/> - <c:out value="${provider.name}"/></option>
+                                                    </c:forEach>
+                                                </select>
+                                                <div class="form-text">Optional. Select a provider for this incoming shipment.</div>
+                                            </div>
+                                            
                                             <!-- Expected Delivery Date -->
                                             <div class="mb-4">
                                                 <label for="expectedDate" class="form-label">Expected Delivery Date</label>

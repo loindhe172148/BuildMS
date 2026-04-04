@@ -238,7 +238,6 @@ public class ProductController extends HttpServlet {
         
         String sku = request.getParameter("sku");
         String name = request.getParameter("name");
-        String unit = request.getParameter("unit");
         String categoryIdStr = request.getParameter("categoryId");
         
         // Validate required fields - AF-2: Empty Required Fields
@@ -272,12 +271,15 @@ public class ProductController extends HttpServlet {
             request.setAttribute("errorMessage", errorMsg.toString().trim());
             request.setAttribute("sku", sku);
             request.setAttribute("name", name);
-            request.setAttribute("unit", unit);
             request.setAttribute("categoryId", categoryId);
             request.setAttribute("categories", categoryService.getAllCategories());
             request.getRequestDispatcher("/WEB-INF/views/product/add.jsp").forward(request, response);
             return;
         }
+        
+        // Inherit exact unit from selected category
+        Category category = categoryService.getCategoryById(categoryId);
+        String unit = category != null ? category.getDefaultUnit() : null;
         
         // Create product
         Product created = productService.createProduct(sku.trim(), name.trim(), unit, categoryId);
@@ -287,7 +289,6 @@ public class ProductController extends HttpServlet {
             request.setAttribute("errorMessage", "SKU already exists. Please use a unique SKU.");
             request.setAttribute("sku", sku);
             request.setAttribute("name", name);
-            request.setAttribute("unit", unit);
             request.setAttribute("categoryId", categoryId);
             request.setAttribute("categories", categoryService.getAllCategories());
             request.getRequestDispatcher("/WEB-INF/views/product/add.jsp").forward(request, response);
@@ -362,10 +363,7 @@ public class ProductController extends HttpServlet {
         }
         
         String idParam = request.getParameter("id");
-        String sku = request.getParameter("sku");
         String name = request.getParameter("name");
-        String unit = request.getParameter("unit");
-        String categoryIdStr = request.getParameter("categoryId");
         
         // Validate ID
         if (idParam == null || idParam.trim().isEmpty()) {
@@ -376,75 +374,27 @@ public class ProductController extends HttpServlet {
         
         try {
             Long id = Long.parseLong(idParam.trim());
+            Product existing = productService.getProductById(id);
+            if (existing == null) {
+                request.getSession().setAttribute("errorMessage", "Product not found");
+                response.sendRedirect(request.getContextPath() + "/product?action=list");
+                return;
+            }
             
             // Validate required fields
-            boolean hasError = false;
-            StringBuilder errorMsg = new StringBuilder();
-            
-            if (sku == null || sku.trim().isEmpty()) {
-                errorMsg.append("SKU is required. ");
-                hasError = true;
-            }
-            
             if (name == null || name.trim().isEmpty()) {
-                errorMsg.append("Product name is required. ");
-                hasError = true;
-            }
-            
-            Long categoryId = null;
-            if (categoryIdStr == null || categoryIdStr.trim().isEmpty()) {
-                errorMsg.append("Category is required. ");
-                hasError = true;
-            } else {
-                try {
-                    categoryId = Long.parseLong(categoryIdStr.trim());
-                } catch (NumberFormatException e) {
-                    errorMsg.append("Invalid category. ");
-                    hasError = true;
-                }
-            }
-            
-            if (hasError) {
-                request.setAttribute("errorMessage", errorMsg.toString().trim());
-                Product product = productService.getProductById(id);
-                if (product != null) {
-                    product.setSku(sku);
-                    product.setName(name);
-                    product.setUnit(unit);
-                    product.setCategoryId(categoryId);
-                    request.setAttribute("product", product);
-                }
+                request.setAttribute("errorMessage", "Product name is required.");
+                request.setAttribute("product", existing);
                 request.setAttribute("categories", categoryService.getAllCategories());
-                int invQty = productService.getTotalInventoryQuantity(id);
-                request.setAttribute("hasInventory", invQty > 0);
-                request.setAttribute("inventoryQty", invQty);
                 request.getRequestDispatcher("/WEB-INF/views/product/edit.jsp").forward(request, response);
                 return;
             }
             
-            // Update product
-            boolean updated = productService.updateProduct(id, sku.trim(), name.trim(), unit, categoryId);
+            // Update product (only Name is allowed to be updated)
+            boolean updated = productService.updateProduct(id, existing.getSku(), name.trim(), existing.getUnit(), existing.getCategoryId());
             
             if (!updated) {
-                // Could be duplicate SKU or product not found
-                Product existing = productService.getProductById(id);
-                if (existing == null) {
-                    request.getSession().setAttribute("errorMessage", "Product not found");
-                } else {
-                    // AF-2: Duplicate SKU
-                    request.setAttribute("errorMessage", "SKU already exists");
-                    existing.setSku(sku);
-                    existing.setName(name);
-                    existing.setUnit(unit);
-                    existing.setCategoryId(categoryId);
-                    request.setAttribute("product", existing);
-                    request.setAttribute("categories", categoryService.getAllCategories());
-                    int invQty2 = productService.getTotalInventoryQuantity(id);
-                    request.setAttribute("hasInventory", invQty2 > 0);
-                    request.setAttribute("inventoryQty", invQty2);
-                    request.getRequestDispatcher("/WEB-INF/views/product/edit.jsp").forward(request, response);
-                    return;
-                }
+                request.getSession().setAttribute("errorMessage", "Failed to update product");
                 response.sendRedirect(request.getContextPath() + "/product?action=list");
                 return;
             }

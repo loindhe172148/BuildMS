@@ -75,37 +75,21 @@
                                             </div>
                                         </c:if>
                                         
-                                        <!-- SKU Change Warning -->
-                                        <c:if test="${hasInventory}">
-                                            <div class="alert alert-warning" role="alert">
-                                                <i class="bx bx-info-circle me-2"></i>
-                                                <strong>Warning:</strong> This product has <c:out value="${inventoryQty}"/> units in inventory. 
-                                                Changing the SKU is not recommended as it may cause tracking issues.
-                                            </div>
-                                        </c:if>
-                                        
                                         <form action="${contextPath}/product" method="post">
                                             <input type="hidden" name="action" value="edit" />
                                             <input type="hidden" name="id" value="${product.id}" />
                                             
-                                            <!-- SKU -->
+                                            <!-- SKU (Locked) -->
                                             <div class="mb-4">
-                                                <label class="form-label" for="sku">
-                                                    SKU <span class="text-danger">*</span>
+                                                <label class="form-label text-muted" for="sku">
+                                                    SKU <i class="bx bx-lock-alt fs-6 ms-1" title="SKU cannot be changed"></i>
                                                 </label>
                                                 <div class="input-group">
-                                                    <span class="input-group-text"><i class="bx bx-barcode"></i></span>
-                                                    <input type="text" class="form-control ${hasInventory ? 'border-warning' : ''}" 
+                                                    <span class="input-group-text bg-lighter text-muted"><i class="bx bx-barcode"></i></span>
+                                                    <input type="text" class="form-control bg-lighter text-muted" 
                                                            id="sku" name="sku" 
-                                                           value="<c:out value='${product.sku}'/>" placeholder="e.g., PRD-001, SKU-ABC123"
-                                                           required maxlength="100" />
+                                                           value="<c:out value='${product.sku}'/>" readonly />
                                                 </div>
-                                                <c:if test="${hasInventory}">
-                                                    <div class="form-text text-warning">
-                                                        <i class="bx bx-error me-1"></i>
-                                                        Changing SKU may affect inventory tracking.
-                                                    </div>
-                                                </c:if>
                                             </div>
                                             
                                             <!-- Name -->
@@ -121,12 +105,12 @@
                                                 </div>
                                             </div>
                                             
-                                            <!-- Category -->
+                                            <!-- Category (Locked) -->
                                             <div class="mb-4">
-                                                <label class="form-label" for="categoryId">
-                                                    Category <span class="text-danger">*</span>
+                                                <label class="form-label text-muted" for="categoryId">
+                                                    Category <i class="bx bx-lock-alt fs-6 ms-1" title="Category cannot be changed"></i>
                                                 </label>
-                                                <select class="form-select" id="categoryId" name="categoryId" required>
+                                                <select class="form-select bg-lighter text-muted" id="categorySelect" disabled>
                                                     <option value="">Select a category</option>
                                                     <c:forEach var="cat" items="${categories}">
                                                         <option value="<c:out value='${cat.id}'/>" <c:out value="${product.categoryId == cat.id ? 'selected' : ''}"/>>
@@ -136,29 +120,16 @@
                                                 </select>
                                             </div>
                                             
-                                            <!-- Unit -->
+                                            <!-- Unit (Locked) -->
                                             <div class="mb-4">
-                                                <label class="form-label" for="unit">Unit of Measure</label>
+                                                <label class="form-label text-muted" for="unit">
+                                                    Unit of Measure <i class="bx bx-lock-alt fs-6 ms-1" title="Unit is inherited from category and cannot be changed"></i>
+                                                </label>
                                                 <div class="input-group">
-                                                    <span class="input-group-text"><i class="bx bx-ruler"></i></span>
-                                                    <input type="text" class="form-control" id="unit" name="unit" 
-                                                           value="<c:out value='${product.unit}'/>" placeholder="e.g., pcs, kg, box, carton"
-                                                           maxlength="50" list="unitSuggestions" />
+                                                    <span class="input-group-text bg-lighter text-muted"><i class="bx bx-ruler"></i></span>
+                                                    <input type="text" class="form-control bg-lighter text-muted" id="unit" name="unit" 
+                                                           value="<c:out value='${product.unit}'/>" readonly />
                                                 </div>
-                                                <datalist id="unitSuggestions">
-                                                    <option value="pcs">
-                                                    <option value="kg">
-                                                    <option value="g">
-                                                    <option value="box">
-                                                    <option value="carton">
-                                                    <option value="pack">
-                                                    <option value="set">
-                                                    <option value="unit">
-                                                    <option value="pair">
-                                                    <option value="dozen">
-                                                    <option value="liter">
-                                                    <option value="meter">
-                                                </datalist>
                                             </div>
                                             
                                             <!-- Form Actions -->

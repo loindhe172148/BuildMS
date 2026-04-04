@@ -113,39 +113,24 @@
                                                 <select class="form-select" id="categoryId" name="categoryId" required>
                                                     <option value="">Select a category</option>
                                                     <c:forEach var="cat" items="${categories}">
-                                                        <option value="<c:out value='${cat.id}'/>" <c:out value="${categoryId == cat.id ? 'selected' : ''}"/>>
+                                                        <option value="<c:out value='${cat.id}'/>" 
+                                                                data-unit="<c:out value='${cat.defaultUnit}'/>"
+                                                                <c:out value="${categoryId == cat.id ? 'selected' : ''}"/>>
                                                             <c:out value="${cat.name}"/>
                                                         </option>
                                                     </c:forEach>
                                                 </select>
                                             </div>
                                             
-                                            <!-- Unit -->
+                                            <!-- Unit (Readonly, inherited from category) -->
                                             <div class="mb-4">
-                                                <label class="form-label" for="unit">Unit of Measure</label>
+                                                <label class="form-label text-muted" for="unit">
+                                                    Unit of Measure <i class="bx bx-info-circle ms-1" title="Unit will be inherited from the selected category"></i>
+                                                </label>
                                                 <div class="input-group">
-                                                    <span class="input-group-text"><i class="bx bx-ruler"></i></span>
-                                                    <input type="text" class="form-control" id="unit" name="unit" 
-                                                           value="<c:out value='${unit}'/>" placeholder="e.g., pcs, kg, box, carton"
-                                                           maxlength="50" list="unitSuggestions" />
-                                                </div>
-                                                <datalist id="unitSuggestions">
-                                                    <option value="pcs">
-                                                    <option value="kg">
-                                                    <option value="g">
-                                                    <option value="box">
-                                                    <option value="carton">
-                                                    <option value="pack">
-                                                    <option value="set">
-                                                    <option value="unit">
-                                                    <option value="pair">
-                                                    <option value="dozen">
-                                                    <option value="liter">
-                                                    <option value="meter">
-                                                </datalist>
-                                                <div class="form-text">
-                                                    <i class="bx bx-info-circle me-1"></i>
-                                                    Optional. Common units: pcs, kg, box, carton, pack
+                                                    <span class="input-group-text bg-lighter text-muted"><i class="bx bx-ruler"></i></span>
+                                                    <input type="text" class="form-control bg-lighter text-muted" id="unit" name="unit" 
+                                                           value="<c:out value='${unit}'/>" placeholder="Select a category first..." readonly />
                                                 </div>
                                             </div>
                                             
@@ -218,5 +203,33 @@
     
     <!-- Scripts -->
     <jsp:include page="/WEB-INF/common/scripts.jsp" />
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var categorySelect = document.getElementById('categoryId');
+            var unitInput = document.getElementById('unit');
+            
+            // Initialization: run once on page load to set unit based on old selection (if validation failed)
+            updateUnit();
+            
+            // Listen for changes
+            categorySelect.addEventListener('change', updateUnit);
+            
+            function updateUnit() {
+                var selectedOption = categorySelect.options[categorySelect.selectedIndex];
+                var defaultUnit = selectedOption.getAttribute('data-unit');
+                
+                if (defaultUnit) {
+                    unitInput.value = defaultUnit;
+                } else if (categorySelect.value === "") {
+                    unitInput.value = "";
+                    unitInput.placeholder = "Select a category first...";
+                } else {
+                    unitInput.value = "";
+                    unitInput.placeholder = "No default unit available";
+                }
+            }
+        });
+    </script>
 </body>
 </html>

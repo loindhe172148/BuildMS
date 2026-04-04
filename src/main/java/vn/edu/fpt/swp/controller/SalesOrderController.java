@@ -156,6 +156,15 @@ public class SalesOrderController extends HttpServlet {
      */
     private void showCreateForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Admin/Sales can create
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can create sales orders");
+            listOrders(request, response);
+            return;
+        }
         
         // Get active customers
         List<Customer> customers = salesOrderService.getActiveCustomers();
@@ -179,6 +188,13 @@ public class SalesOrderController extends HttpServlet {
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
+        
+        // Only Admin/Sales can create
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can create sales orders");
+            listOrders(request, response);
+            return;
+        }
         
         try {
             // Parse customer ID
@@ -312,6 +328,13 @@ public class SalesOrderController extends HttpServlet {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
+        // Only Admin/Sales can confirm
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can confirm sales orders");
+            listOrders(request, response);
+            return;
+        }
+        
         try {
             Long orderId = Long.parseLong(request.getParameter("id"));
             
@@ -340,9 +363,9 @@ public class SalesOrderController extends HttpServlet {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
-        // Only Sales/Manager/Admin can generate outbound
-        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Sales and Managers can generate outbound requests");
+        // Only Admin/Sales can generate outbound
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can generate outbound requests");
             listOrders(request, response);
             return;
         }
@@ -393,9 +416,9 @@ public class SalesOrderController extends HttpServlet {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
         
-        // Only Sales/Manager/Admin can generate outbound
-        if (!"Manager".equals(currentUser.getRole()) && !"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
-            request.setAttribute("errorMessage", "Only Sales and Managers can generate outbound requests");
+        // Only Admin/Sales can generate outbound
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can generate outbound requests");
             listOrders(request, response);
             return;
         }
@@ -444,6 +467,16 @@ public class SalesOrderController extends HttpServlet {
      */
     private void showCancelForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User currentUser = (User) session.getAttribute("user");
+        
+        // Only Admin/Sales can cancel
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can cancel sales orders");
+            listOrders(request, response);
+            return;
+        }
+        
         try {
             Long orderId = Long.parseLong(request.getParameter("id"));
             
@@ -478,6 +511,13 @@ public class SalesOrderController extends HttpServlet {
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         User currentUser = (User) session.getAttribute("user");
+        
+        // Only Admin/Sales can cancel
+        if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
+            request.setAttribute("errorMessage", "Only Sales can cancel sales orders");
+            listOrders(request, response);
+            return;
+        }
         
         try {
             Long orderId = Long.parseLong(request.getParameter("id"));

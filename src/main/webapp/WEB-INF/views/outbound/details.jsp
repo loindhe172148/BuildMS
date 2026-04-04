@@ -85,9 +85,11 @@
                                             <i class="bx bx-check-circle me-1"></i>Approve
                                         </button>
                                     </form>
-                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
-                                        <i class="bx bx-x-circle me-1"></i>Reject
-                                    </button>
+                                    <c:if test="${empty outboundRequest.salesOrderId}">
+                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal">
+                                            <i class="bx bx-x-circle me-1"></i>Reject
+                                        </button>
+                                    </c:if>
                                 </c:if>
                                 
                                 <c:if test="${(outboundRequest.status == 'Approved' || outboundRequest.status == 'InProgress') && (currentUser.role == 'Admin' || currentUser.role == 'Manager' || currentUser.role == 'Staff')}">
@@ -464,7 +466,7 @@
     <jsp:include page="/WEB-INF/common/scripts.jsp" />
     
     <!-- Reject Modal -->
-    <c:if test="${outboundRequest.status == 'Created'}">
+    <c:if test="${outboundRequest.status == 'Created' && empty outboundRequest.salesOrderId}">
     <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
