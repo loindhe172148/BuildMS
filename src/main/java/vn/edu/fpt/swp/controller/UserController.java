@@ -69,6 +69,9 @@ public class UserController extends HttpServlet {
         
         request.setCharacterEncoding("UTF-8");
         String action = request.getParameter("action");
+        if (action == null || action.trim().isEmpty()) {
+            action = "list";
+        }
         
         // Check admin access
         if (!isAdmin(request)) {

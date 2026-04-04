@@ -14,7 +14,6 @@ import vn.edu.fpt.swp.util.PaginationUtil;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,6 +38,14 @@ public class SalesOrderController extends HttpServlet {
     public void init() throws ServletException {
         super.init();
         salesOrderService = new SalesOrderService();
+    }
+
+    private User getCurrentUser(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+        return (User) session.getAttribute("user");
     }
     
     @Override
@@ -156,8 +163,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void showCreateForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can create
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
@@ -186,8 +196,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void createOrder(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can create
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
@@ -325,8 +338,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void confirmOrder(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can confirm
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
@@ -360,8 +376,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void showGenerateOutboundForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can generate outbound
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
@@ -413,8 +432,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void generateOutbound(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can generate outbound
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
@@ -467,8 +489,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void showCancelForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can cancel
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {
@@ -509,8 +534,11 @@ public class SalesOrderController extends HttpServlet {
      */
     private void cancelOrder(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        User currentUser = (User) session.getAttribute("user");
+        User currentUser = getCurrentUser(request);
+        if (currentUser == null) {
+            response.sendRedirect(request.getContextPath() + "/auth?action=login");
+            return;
+        }
         
         // Only Admin/Sales can cancel
         if (!"Admin".equals(currentUser.getRole()) && !"Sales".equals(currentUser.getRole())) {

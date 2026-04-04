@@ -555,8 +555,9 @@ public class ProductController extends HttpServlet {
             // Get inventory breakdown (not visible to Sales)
             if (!"Sales".equals(role)) {
                 HttpSession session = request.getSession(false);
-                User currentUser = (User) session.getAttribute("user");
-                Long warehouseFilter = "Staff".equals(role) ? currentUser.getWarehouseId() : null;
+                User currentUser = session != null ? (User) session.getAttribute("user") : null;
+                Long warehouseFilter = ("Staff".equals(role) && currentUser != null)
+                        ? currentUser.getWarehouseId() : null;
                 java.util.List<java.util.Map<String, Object>> inventoryBreakdown
                         = productService.getInventoryBreakdown(id, warehouseFilter);
                 request.setAttribute("inventoryBreakdown", inventoryBreakdown);
