@@ -264,6 +264,69 @@ public class MovementService {
     // ==================== UC-MOV-002: Execute Internal Movement ====================
     
     /**
+     * Auto-execute movement: validate source inventory, start, and complete in one step.
+     * @param requestId Request ID
+     * @param userId User performing execution
+     * @return null on success, error message on failure
+     */
+    public String autoExecuteMovement(Long requestId, Long userId) {
+        if (requestId == null || userId == null) {
+            return "Invalid request or user.";
+        }
+        
+        Request request = requestDAO.findById(requestId);
+        if (request == null || !"Internal".equals(request.getType())) {
+            return "Movement request not found.";
+        }
+        if (!"Approved".equals(request.getStatus())) {
+            return "Request must be in 'Approved' status to execute.";
+        }
+        
+        Long warehouseId = request.getSourceWarehouseId();
+        List<RequestItem> items = requestItemDAO.findByRequestId(requestId);
+        if (items.isEmpty()) {
+            return "No items found in this request.";
+        }
+        
+        // Validate ALL items have sufficient inventory at source location
+        StringBuilder shortageInfo = new StringBuilder();
+        boolean hasShortage = false;
+        for (RequestItem item : items) {
+            Inventory sourceInventory = inventoryDAO.findByProductAndLocation(
+                    item.getProductId(), warehouseId, item.getSourceLocationId());
+            int available = sourceInventory != null ? sourceInventory.getQuantity() : 0;
+            if (available < item.getQuantity()) {
+                hasShortage = true;
+                Product product = productDAO.findById(item.getProductId());
+                String productName = product != null ? product.getName() : "Product #" + item.getProductId();
+                Location srcLoc = locationDAO.findById(item.getSourceLocationId());
+                String locCode = srcLoc != null ? srcLoc.getCode() : "Location #" + item.getSourceLocationId();
+                shortageInfo.append(productName).append(" at ").append(locCode)
+                    .append(": need ").append(item.getQuantity())
+                    .append(", available ").append(available).append(". ");
+            }
+        }
+        
+        if (hasShortage) {
+            return "Insufficient inventory: " + shortageInfo.toString();
+        }
+        
+        // Start execution
+        boolean started = requestDAO.startExecution(requestId);
+        if (!started) {
+            return "Failed to start execution.";
+        }
+        
+        // Complete movement (transactional — deduct source, add to destination)
+        boolean completed = completeMovement(requestId, userId);
+        if (!completed) {
+            return "Failed to complete movement after starting.";
+        }
+        
+        return null; // Success
+    }
+    
+    /**
      * Start execution of an internal movement request
      * @param requestId Request ID
      * @return true if successful

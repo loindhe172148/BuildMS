@@ -596,7 +596,7 @@ public class MovementController extends HttpServlet {
     }
     
     /**
-     * UC-MOV-002: Show execution form
+     * UC-MOV-002: Show execution form (only for Approved requests)
      */
     private void showExecutionForm(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -628,12 +628,10 @@ public class MovementController extends HttpServlet {
             return;
         }
         
-        // Verify request is ready for execution (must be Approved first)
-        String status = movementRequest.getStatus();
-        if (!"Approved".equals(status) && !"InProgress".equals(status)) {
+        // Only Approved requests can be executed (execution is instant)
+        if (!"Approved".equals(movementRequest.getStatus())) {
             request.getSession().setAttribute("errorMessage", 
-                    "This request cannot be executed. Current status: " + status +
-                    ". Only Approved requests can be executed.");
+                    "Only approved requests can be executed.");
             response.sendRedirect(request.getContextPath() + "/movement?action=details&id=" + requestId);
             return;
         }
@@ -651,6 +649,17 @@ public class MovementController extends HttpServlet {
         // Get request items with details
         List<Map<String, Object>> itemsWithDetails = movementService.getRequestItemsWithDetails(requestId);
         
+        // Check if all items have sufficient source inventory
+        boolean allItemsAvailable = true;
+        for (Map<String, Object> itemData : itemsWithDetails) {
+            RequestItem item = (RequestItem) itemData.get("item");
+            Integer srcQty = (Integer) itemData.get("sourceQuantity");
+            int available = srcQty != null ? srcQty : 0;
+            if (available < item.getQuantity()) {
+                allItemsAvailable = false;
+            }
+        }
+        
         // Get warehouse info
         Warehouse warehouse = movementService.getWarehouseById(movementRequest.getSourceWarehouseId());
         
@@ -661,12 +670,13 @@ public class MovementController extends HttpServlet {
         request.setAttribute("itemsWithDetails", itemsWithDetails);
         request.setAttribute("warehouse", warehouse);
         request.setAttribute("createdByUser", createdBy);
+        request.setAttribute("allItemsAvailable", allItemsAvailable);
         
         request.getRequestDispatcher("/WEB-INF/views/movement/execute.jsp").forward(request, response);
     }
     
     /**
-     * UC-MOV-002: Start execution
+     * UC-MOV-002: Auto-execute movement (validate + start + complete)
      */
     private void startExecution(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -690,15 +700,17 @@ public class MovementController extends HttpServlet {
             return;
         }
         
-        boolean success = movementService.startExecution(requestId);
+        Long userId = getCurrentUserId(request);
+        String error = movementService.autoExecuteMovement(requestId, userId);
         
-        if (success) {
-            request.getSession().setAttribute("successMessage", "Movement execution started.");
+        if (error == null) {
+            request.getSession().setAttribute("successMessage", 
+                    "Internal Movement #" + requestId + " executed successfully. Inventory updated.");
+            response.sendRedirect(request.getContextPath() + "/movement?action=details&id=" + requestId);
         } else {
-            request.getSession().setAttribute("errorMessage", "Failed to start movement execution.");
+            request.getSession().setAttribute("errorMessage", error);
+            response.sendRedirect(request.getContextPath() + "/movement?action=execute&id=" + requestId);
         }
-        
-        response.sendRedirect(request.getContextPath() + "/movement?action=execute&id=" + requestId);
     }
     
     /**
